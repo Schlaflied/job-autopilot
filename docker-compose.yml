@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: job-autopilot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - job-autopilot-network
+
+  # Main application (Flask + Streamlit)
+  app:
+    build: .
+    container_name: job-autopilot-app
+    ports:
+      - "7000:7000" # Streamlit UI
+      - "5000:5000" # Flask API
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./modules:/app/modules
+      - ./.env:/app/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - job-autopilot-network
+
+networks:
+  job-autopilot-network:
+    driver: bridge
+
+volumes:
+  redis_data:

@@ -1,0 +1,65 @@
+# ============================================================
+# Job Autopilot - Python Dependencies
+# ============================================================
+
+# Core Framework
+flask==3.0.0
+streamlit==1.30.0
+python-dotenv==1.0.0
+
+# Database
+psycopg2-binary==2.9.9  # PostgreSQL adapter
+sqlalchemy==2.0.23      # ORM
+alembic==1.13.1         # Database migrations
+
+# Redis Caching
+redis==5.0.1
+hiredis==2.3.2  # Faster redis parser
+
+# AI & NLP
+openai==1.6.1
+langchain==0.1.0
+langchain-openai==0.0.2
+tiktoken==0.5.2  # Token counting
+
+# Web Scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.4
+selenium==4.16.0
+undetected-chromedriver==3.5.4
+webdriver-manager==4.0.1
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Resume Generation
+reportlab==4.0.7        # PDF generation
+python-docx==1.1.0      # Word document generation
+Jinja2==3.1.2           # Template engine
+Pillow==10.1.0          # Image processing
+
+# Gmail API
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.110.0
+
+# Apify SDK
+apify-client==1.5.1
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3.post1
+validators==0.22.0
+pydantic==2.5.3
+
+# Async/Task Scheduling
+APScheduler==3.10.4
+
+# Development & Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+black==23.12.1
+flake8==7.0.0
