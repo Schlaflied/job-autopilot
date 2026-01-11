@@ -186,12 +186,7 @@ Contributions welcome! Please:
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 
-## 👤 Author
 
-**Yuting Sun**
-- Portfolio: https://syttt.my.canva.site/
-- LinkedIn: https://www.linkedin.com/in/yuting-sun-48bbb4211/
-- GitHub: https://github.com/Schlaflied
 
 ## 🙏 Acknowledgments
 
