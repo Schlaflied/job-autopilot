@@ -95,7 +95,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. **REQUIRED**: Create your master resume
-# Create a file named "Yuting Sun Master Resume.md" (or your name)
+# Create a file named "Master Resume.md" (or "[Your Name] Master Resume.md")
 # Place it in the project root directory
 # Format: Markdown with sections for Experience, Education, Skills
 # Example:
