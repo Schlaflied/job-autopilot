@@ -9,6 +9,9 @@ import os
 from dotenv import load_dotenv
 from modules.logger_config import app_logger
 
+# Load environment variables
+load_dotenv()
+
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -55,7 +58,7 @@ class Job(Base):
     match_score = Column(Integer)  # 0-10
     match_reasoning = Column(Text)
     ats_score = Column(Integer)  # 0-100
-    ats_missing_keywords = Column(ARRAY(String))
+    ats_missing_keywords = Column(JSON)  # Store as JSON instead of ARRAY for compatibility
     job_category = Column(String(50))  # 'edtech', 'ai_pm', 'automation'
     scraped_source = Column(String(20), default='apify')
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -73,7 +76,7 @@ class ResumeVersion(Base):
     resume_json = Column(JSON)  # JSONB in PostgreSQL
     pdf_path = Column(String)
     docx_path = Column(String)
-    ats_optimized_keywords = Column(ARRAY(String))
+    ats_optimized_keywords = Column(JSON)  # Store as JSON for compatibility
     version_number = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     
