@@ -109,28 +109,48 @@ class JobScraper:
         """
         try:
             # Extract posted date
-            posted_date = raw_job.get("datePublished")
+            posted_date = raw_job.get("datePublished") or raw_job.get("postedAt")
             if posted_date:
                 try:
                     posted_date = datetime.fromisoformat(posted_date.replace('Z', '+00:00'))
                 except:
                     posted_date = None
             
+            # Extract company name (Apify uses different field names)
+            company = (
+                raw_job.get("companyName") or 
+                raw_job.get("company") or 
+                raw_job.get("hiringOrganization", {}).get("name") or 
+                "Company Not Listed"
+            )
+            
+            # Extract location
+            location = raw_job.get("location") or raw_job.get("jobLocation", {}).get("address") or "Remote"
+            
+            # Extract salary - handle both dict and string formats
+            salary = "Not specified"
+            salary_data = raw_job.get("salary")
+            if salary_data:
+                if isinstance(salary_data, dict):
+                    salary = salary_data.get("salaryText") or salary_data.get("text") or "Not specified"
+                elif isinstance(salary_data, str):
+                    salary = salary_data
+            
             # Determine job category based on title/description
             category = self._categorize_job(
                 raw_job.get("title", ""),
-                raw_job.get("descriptionText", "")
+                raw_job.get("descriptionText", "") or raw_job.get("description", "")
             )
             
             processed = {
-                "title": raw_job.get("title", "Unknown"),
-                "company": raw_job.get("company", "Unknown"),
-                "description": raw_job.get("descriptionText", ""),
-                "location": raw_job.get("location", ""),
-                "salary": raw_job.get("salary", {}).get("salaryText", "Not specified"),
-                "is_remote": raw_job.get("isRemote", False),
+                "title": raw_job.get("title", "Unknown Position"),
+                "company": company,
+                "description": raw_job.get("descriptionText") or raw_job.get("description") or "",
+                "location": location,
+                "salary": salary,
+                "is_remote": raw_job.get("isRemote", False) or ("remote" in location.lower()),
                 "posted_date": posted_date,
-                "job_url": raw_job.get("url", ""),
+                "job_url": raw_job.get("url") or raw_job.get("link", ""),
                 "job_category": category,
                 "scraped_source": "apify"
             }
@@ -138,7 +158,7 @@ class JobScraper:
             return processed
         
         except Exception as e:
-            scraper_logger.error(f"Failed to process job data: {e}")
+            scraper_logger.error(f"Failed to process job data: {e}", exc_info=True)
             return {}
     
     def _categorize_job(self, title: str, description: str) -> str:

@@ -326,10 +326,13 @@ if page == "🔍 Job Search":
                     st.markdown(f'<div class="score-badge {badge_class}">{score}/10</div>', unsafe_allow_html=True)
                     st.markdown("")
                     
-                    if st.button("✏️ Optimize Resume", key=f"resume_{job.get('id', 0)}"):
+                    # Use job_url as unique key (Apify jobs don't have 'id' field)
+                    job_key = job.get('job_url', '').replace('/', '_').replace(':', '')[-50:]
+                    
+                    if st.button("✏️ Optimize Resume", key=f"resume_{job_key}"):
                         st.info("Resume optimization will be available once AI module is connected!")
                     
-                    if st.button("✉️ Create Draft", key=f"email_{job.get('id', 0)}"):
+                    if st.button("✉️ Create Draft", key=f"email_{job_key}"):
                         with st.spinner("Generating email..."):
                             email = ai_agent.generate_cold_email(job, "Hiring Manager", "initial")
                             st.text_area("Generated Email:", email, height=300)
@@ -367,10 +370,19 @@ elif page == "⚙️ Settings":
     st.markdown("### API Configuration")
     
     with st.expander("🔑 API Keys Status"):
+        # Check Gmail status
+        gmail_connected = False
+        try:
+            from modules.gmail_service import gmail_service
+            import os
+            gmail_connected = os.path.exists(gmail_service.token_path)
+        except:
+            pass
+        
         st.write("**OpenAI:** ", "✅ Connected" if not st.session_state.demo_mode else "❌ Not configured")
-        st.write("**Apify:** ", "❌ Not checked")
-        st.write("**Gmail:** ", "❌ Not configured")
-        st.write("**Database:** ", "❌ Not connected")
+        st.write("**Apify:** ", "✅ Connected" if not st.session_state.demo_mode else "❌ Not configured")
+        st.write("**Gmail:** ", "✅ Connected" if gmail_connected else "❌ Not configured")
+        st.write("**Database:** ", "⚠️ SQLite (Demo)" if st.session_state.demo_mode else "✅ Connected")
     
     st.markdown("### Job Search Preferences")
     
