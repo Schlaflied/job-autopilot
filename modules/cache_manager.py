@@ -18,20 +18,23 @@ class CacheManager:
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.redis_db = int(os.getenv("REDIS_DB", 0))
+        self.demo_mode = False
         
         try:
             self.redis_client = redis.Redis(
                 host=self.redis_host,
                 port=self.redis_port,
                 db=self.redis_db,
-                decode_responses=True  # Automatically decode bytes to strings
+                decode_responses=True,
+                socket_connect_timeout=2  # Short timeout
             )
             # Test connection
             self.redis_client.ping()
             app_logger.info(f"Redis connected: {self.redis_host}:{self.redis_port}")
         except Exception as e:
-            app_logger.error(f"Redis connection failed: {e}", exc_info=True)
-            raise
+            app_logger.warning(f"Redis connection failed (running in DEMO mode): {e}")
+            self.redis_client = None
+            self.demo_mode = True
     
     def _serialize(self, data: Any) -> str:
         """Serialize data to JSON string"""
@@ -65,6 +68,9 @@ class CacheManager:
         Returns:
             bool: Success status
         """
+        if self.demo_mode:
+            return False
+        
         try:
             key = f"job:{job_url}"
             self.redis_client.setex(
@@ -88,6 +94,9 @@ class CacheManager:
         Returns:
             dict or None: Job data if exists
         """
+        if self.demo_mode:
+            return None
+        
         try:
             key = f"job:{job_url}"
             data = self.redis_client.get(key)
@@ -100,29 +109,13 @@ class CacheManager:
             app_logger.error(f"Failed to get cached job {job_url}: {e}")
             return None
     
-    # ============================================================
-    # HR Contact Caching
-    # ============================================================
-    
     def cache_hr_contact(self, company_name: str, contact_data: Dict, ttl_days: int = 30) -> bool:
-        """
-        Cache HR contact for 30 days
-        
-        Args:
-            company_name: Company name
-            contact_data: HR contact details
-            ttl_days: Time to live in days
-        
-        Returns:
-            bool: Success status
-        """
+        """Cache HR contact for 30 days"""
+        if self.demo_mode:
+            return False
         try:
             key = f"hr:{company_name.lower().strip()}"
-            self.redis_client.setex(
-                key,
-                timedelta(days=ttl_days),
-                self._serialize(contact_data)
-            )
+            self.redis_client.setex(key, timedelta(days=ttl_days), self._serialize(contact_data))
             app_logger.info(f"Cached HR contact for: {company_name}")
             return True
         except Exception as e:
@@ -130,15 +123,9 @@ class CacheManager:
             return False
     
     def get_cached_hr_contact(self, company_name: str) -> Optional[Dict]:
-        """
-        Retrieve cached HR contact
-        
-        Args:
-            company_name: Company name
-        
-        Returns:
-            dict or None: HR contact data if exists
-        """
+        """Retrieve cached HR contact"""
+        if self.demo_mode:
+            return None
         try:
             key = f"hr:{company_name.lower().strip()}"
             data = self.redis_client.get(key)
@@ -151,29 +138,13 @@ class CacheManager:
             app_logger.error(f"Failed to get cached HR for {company_name}: {e}")
             return None
     
-    # ============================================================
-    # ATS Analysis Caching
-    # ============================================================
-    
     def cache_ats_analysis(self, job_id: int, ats_data: Dict, ttl_days: int = 14) -> bool:
-        """
-        Cache ATS analysis for 14 days
-        
-        Args:
-            job_id: Job ID
-            ats_data: ATS analysis results
-            ttl_days: Time to live in days
-        
-        Returns:
-            bool: Success status
-        """
+        """Cache ATS analysis for 14 days"""
+        if self.demo_mode:
+            return False
         try:
             key = f"ats_analysis:{job_id}"
-            self.redis_client.setex(
-                key,
-                timedelta(days=ttl_days),
-                self._serialize(ats_data)
-            )
+            self.redis_client.setex(key, timedelta(days=ttl_days), self._serialize(ats_data))
             app_logger.debug(f"Cached ATS analysis for job {job_id}")
             return True
         except Exception as e:
@@ -181,15 +152,9 @@ class CacheManager:
             return False
     
     def get_cached_ats_analysis(self, job_id: int) -> Optional[Dict]:
-        """
-        Retrieve cached ATS analysis
-        
-        Args:
-            job_id: Job ID
-        
-        Returns:
-            dict or None: ATS analysis if exists
-        """
+        """Retrieve cached ATS analysis"""
+        if self.demo_mode:
+            return None
         try:
             key = f"ats_analysis:{job_id}"
             data = self.redis_client.get(key)

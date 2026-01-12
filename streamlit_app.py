@@ -59,6 +59,80 @@ if 'jobs' not in st.session_state:
 if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = ai_agent.demo_mode
 
+# Load demo data on first run
+if 'demo_loaded' not in st.session_state:
+    st.session_state.demo_loaded = False
+    if st.session_state.demo_mode:
+        # Auto-load demo data
+        st.session_state.jobs = [
+            {
+                "id": 1,
+                "title": "Senior Instructional Designer",
+                "company": "EdTech Solutions Inc.",
+                "location": "Toronto, ON (Remote)",
+                "salary": "$65,000 - $80,000/year",
+                "description": "We're seeking an experienced instructional designer to develop engaging online courses for our corporate clients. You'll work with AI-powered learning tools, create interactive content using H5P and Articulate, and collaborate with subject matter experts to design effective learning experiences.",
+                "is_remote": True,
+                "job_url": "https://example.com/job1",
+                "posted_date": datetime.now(),
+                "match_score": 9,
+                "match_reasoning": "Perfect fit: EdTech role (+4) | Excellent salary (+3) | Remote (+1) | Ontario (+1)"
+            },
+            {
+                "id": 2,
+                "title": "AI Product Manager - Learning Technologies",
+                "company": "TechCorp Canada",
+                "location": "Ottawa, ON (Hybrid)",
+                "salary": "$85,000 - $100,000/year",
+                "description": "Join our AI team to lead the development of intelligent learning platforms. You'll define product strategy, work with ML engineers to implement AI features, conduct user research, and drive product adoption across educational institutions.",
+                "is_remote": False,
+                "job_url": "https://example.com/job2",
+                "posted_date": datetime.now(),
+                "match_score": 8,
+                "match_reasoning": "Strong match: AI PM role (+4) | High salary (+3) | Ontario (+1)"
+            },
+            {
+                "id": 3,
+                "title": "Learning & Development Specialist",
+                "company": "Global Training Co.",
+                "location": "Mississauga, ON (Remote)",
+                "salary": "$58,000 - $70,000/year",
+                "description": "Design and deliver training programs for our multinational team. You'll use LMS platforms, create microlearning content, implement pilot programs for new features, and measure training effectiveness through data analytics.",
+                "is_remote": True,
+                "job_url": "https://example.com/job3",
+                "posted_date": datetime.now(),
+                "match_score": 7,
+                "match_reasoning": "Good match: L&D role (+4) | Pilot Program keyword (+1) | Competitive salary (+1) | Ontario (+1)"
+            },
+            {
+                "id": 4,
+                "title": "Automation Engineer - Workflow Specialist",
+                "company": "Innovate Systems",
+                "location": "Waterloo, ON (Hybrid)",
+                "salary": "$70,000 - $85,000/year",
+                "description": "Build and deploy workflow automation solutions using n8n, Zapier, and custom Python scripts. You'll work on technical POCs, implement system integrations, and help clients optimize their business processes through intelligent automation.",
+                "is_remote": False,
+                "job_url": "https://example.com/job4",
+                "posted_date": datetime.now(),
+                "match_score": 8,
+                "match_reasoning": "Excellent match: Automation role (+4) | Workflow keywords (+1) | POC experience (+1) | Good salary (+1) | Ontario (+1)"
+            },
+            {
+                "id": 5,
+                "title": "HRIS Analyst - Implementation Specialist",
+                "company": "HR Pro Solutions",
+                "location": "Toronto, ON (Remote)",
+                "salary": "$62,000 - $75,000/year",
+                "description": "Lead HRIS system implementations for new clients. You'll configure Workday modules, conduct system testing, train end users, and ensure smooth rollout of new features. Experience with workflow automation is a plus.",
+                "is_remote": True,
+                "job_url": "https://example.com/job5",
+                "posted_date": datetime.now(),
+                "match_score": 6,
+                "match_reasoning": "Moderate match: HRIS role (+3) | System Implementation (+1) | Remote (+1) | Ontario (+1)"
+            }
+        ]
+        st.session_state.demo_loaded = True
+
 # Sidebar navigation
 with st.sidebar:
     st.markdown("### 🚀 Job Autopilot")
@@ -79,9 +153,10 @@ with st.sidebar:
         st.success("✅ API Connected")
     
     st.markdown("---")
-    st.markdown("**Stats**")
+    st.markdown("**Quick Stats**")
     st.metric("Jobs Found", len(st.session_state.jobs))
-    st.metric("Applications", 0)
+    st.metric("High Matches (8+)", len([j for j in st.session_state.jobs if j.get('match_score', 0) >= 8]))
+    st.metric("Remote Jobs", len([j for j in st.session_state.jobs if j.get('is_remote', False)]))
 
 # Main content
 if page == "🔍 Job Search":
@@ -126,42 +201,68 @@ if page == "🔍 Job Search":
                     st.session_state.jobs = [
                         {
                             "id": 1,
-                            "title": "Instructional Designer",
+                            "title": "Senior Instructional Designer",
                             "company": "EdTech Solutions Inc.",
                             "location": "Toronto, ON (Remote)",
-                            "salary": "$60,000 - $75,000",
-                            "description": "Looking for an experienced instructional designer to develop engaging online courses...",
+                            "salary": "$65,000 - $80,000/year",
+                            "description": "We're seeking an experienced instructional designer to develop engaging online courses for our corporate clients. You'll work with AI-powered learning tools, create interactive content using H5P and Articulate, and collaborate with subject matter experts to design effective learning experiences. This role includes system implementation projects and piloting new learning technologies.",
                             "is_remote": True,
                             "job_url": "https://example.com/job1",
                             "posted_date": datetime.now(),
                             "match_score": 9,
-                            "match_reasoning": "Perfect fit: EdTech role (+4) | Great salary (+3) | Remote (+1) | Ontario (+1)"
+                            "match_reasoning": "Perfect fit: EdTech role (+4) | Excellent salary (+3) | Remote (+1) | Ontario (+1)"
                         },
                         {
                             "id": 2,
-                            "title": "AI Product Manager",
+                            "title": "AI Product Manager - Learning Technologies",
                             "company": "TechCorp Canada",
-                            "location": "Ottawa,ON (Hybrid)",
-                            "salary": "$80,000 - $95,000",
-                            "description": "Seeking an AI PM to lead our educational technology initiatives...",
+                            "location": "Ottawa, ON (Hybrid)",
+                            "salary": "$85,000 - $100,000/year",
+                            "description": "Join our AI team to lead the development of intelligent learning platforms. You'll define product strategy, work with ML engineers to implement AI features, conduct user research, and drive product adoption across educational institutions. Experience with POC development and workflow automation tools (n8n, Zapier) is a plus.",
                             "is_remote": False,
                             "job_url": "https://example.com/job2",
                             "posted_date": datetime.now(),
                             "match_score": 8,
-                            "match_reasoning": "Strong match: AI PM role (+4) | Excellent salary (+3) | Ontario (+1)"
+                            "match_reasoning": "Strong match: AI PM role (+4) | High salary (+3) | Ontario (+1)"
                         },
                         {
                             "id": 3,
                             "title": "Learning & Development Specialist",
                             "company": "Global Training Co.",
-                            "location": "Mississauga, ON",
-                            "salary": "$55,000",
-                            "description": "Join our L&D team to design and deliver training programs...",
+                            "location": "Mississauga, ON (Remote)",
+                            "salary": "$58,000 - $70,000/year",
+                            "description": "Design and deliver training programs for our multinational team. You'll use LMS platforms (Moodle, Canvas), create microlearning content, implement pilot programs for new features, and measure training effectiveness through data analytics. Strong instructional design background required.",
                             "is_remote": True,
                             "job_url": "https://example.com/job3",
                             "posted_date": datetime.now(),
                             "match_score": 7,
-                            "match_reasoning": "Good match: L&D role (+4) | Competitive salary (+2) | Ontario (+1)"
+                            "match_reasoning": "Good match: L&D role (+4) | Pilot Program keyword (+1) | Competitive salary (+1) | Remote (+1)"
+                        },
+                        {
+                            "id": 4,
+                            "title": "Automation Engineer - Workflow Specialist",
+                            "company": "Innovate Systems",
+                            "location": "Waterloo, ON (Hybrid)",
+                            "salary": "$70,000 - $85,000/year",
+                            "description": "Build and deploy workflow automation solutions using n8n, Zapier, and custom Python scripts. You'll work on technical POCs, implement system integrations, and help clients optimize their business processes through intelligent automation. Perfect for someone with both technical skills and understanding of business workflows.",
+                            "is_remote": False,
+                            "job_url": "https://example.com/job4",
+                            "posted_date": datetime.now(),
+                            "match_score": 8,
+                            "match_reasoning": "Excellent match: Automation role (+4) | Workflow keywords (+1) | POC experience (+1) | Good salary (+1) | Ontario (+1)"
+                        },
+                        {
+                            "id": 5,
+                            "title": "HRIS Analyst - Implementation Specialist",
+                            "company": "HR Pro Solutions",
+                            "location": "Toronto, ON (Remote)",
+                            "salary": "$62,000 - $75,000/year",
+                            "description": "Lead HRIS system implementations for new clients. You'll configure Workday modules, conduct system testing, train end users, and ensure smooth rollout of new features. Experience with workflow automation and technical documentation is valued. This is a great opportunity to combine HR knowledge with technical skills.",
+                            "is_remote": True,
+                            "job_url": "https://example.com/job5",
+                            "posted_date": datetime.now(),
+                            "match_score": 6,
+                            "match_reasoning": "Moderate match: HRIS role (+3) | System Implementation (+1) | Remote (+1) | Ontario (+1)"
                         }
                     ]
                     st.success(f"✅ Found {len(st.session_state.jobs)} jobs (DEMO MODE)")

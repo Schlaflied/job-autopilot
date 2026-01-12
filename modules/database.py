@@ -9,19 +9,31 @@ import os
 from dotenv import load_dotenv
 from modules.logger_config import app_logger
 
-load_dotenv()
-
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    app_logger.error("DATABASE_URL not found in environment variables!")
-    raise ValueError("DATABASE_URL is required")
+    app_logger.warning("DATABASE_URL not found - running in DEMO mode (no database)")
+    # Use SQLite in-memory database for demo mode
+    DATABASE_URL = "sqlite:///:memory:"
+    DEMO_MODE = True
+else:
+    DEMO_MODE = False
 
 # Create engine
-engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+try:
+    engine = create_engine(DATABASE_URL, echo=False)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+    app_logger.info(f"Database engine created ({'DEMO mode' if DEMO_MODE else 'Production mode'})")
+except Exception as e:
+    app_logger.error(f"Failed to create database engine: {e}")
+    # Fallback to in-memory SQLite
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+    DEMO_MODE = True
+    app_logger.warning("Using fallback in-memory database")
 
 # ============================================================
 # Models
@@ -132,10 +144,16 @@ def init_db():
     """Create all tables"""
     try:
         Base.metadata.create_all(bind=engine)
-        app_logger.info("Database tables created successfully")
+        if DEMO_MODE:
+            app_logger.info("Database tables created (DEMO mode - in-memory)")
+        else:
+            app_logger.info("Database tables created successfully")
+        return True
     except Exception as e:
         app_logger.error(f"Failed to create database tables: {e}", exc_info=True)
-        raise
+        if not DEMO_MODE:
+            raise
+        return False
 
 def get_db():
     """Dependency for getting database session"""

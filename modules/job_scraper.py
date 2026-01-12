@@ -182,7 +182,12 @@ class JobScraper:
         Returns:
             int: Number of jobs saved
         """
-        db = SessionLocal()
+        try:
+            db = SessionLocal()
+        except Exception as e:
+            scraper_logger.warning(f"Database not available (DEMO mode): {e}")
+            return 0
+        
         saved_count = 0
         
         try:
