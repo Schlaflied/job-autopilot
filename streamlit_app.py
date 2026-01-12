@@ -193,7 +193,17 @@ if page == "🔍 Job Search":
     with col5:
         remote = st.selectbox("Remote", ["hybrid", "remote", "onsite"])
     
-    if st.button("🔍 Search Jobs", type="primary", use_container_width=True):
+    # Two buttons: Search (new API call) and Load Cached (from DB)
+    button_col1, button_col2 = st.columns(2)
+    
+    with button_col1:
+        search_clicked = st.button("🔍 Search Jobs", type="primary", use_container_width=True)
+    
+    with button_col2:
+        load_cached_clicked = st.button("📦 Load Cached Jobs", use_container_width=True, 
+                                       help="Load previously scraped jobs from database (no API call)")
+    
+    if search_clicked:
         with st.spinner("Searching jobs..."):
             try:
                 # Demo mode: create sample jobs
@@ -292,6 +302,48 @@ if page == "🔍 Job Search":
             except Exception as e:
                 st.error(f"Search failed: {e}")
                 streamlit_logger.error(f"Job search error: {e}", exc_info=True)
+    
+    elif load_cached_clicked:
+        with st.spinner("Loading cached jobs from database..."):
+            try:
+                # Load from database
+                scraper = JobScraper()
+                cached_jobs = scraper.get_recent_jobs(days=7)  # Last 7 days
+                
+                if cached_jobs:
+                    # Convert SQLAlchemy objects to dicts
+                    jobs = []
+                    for job in cached_jobs:
+                        job_dict = {
+                            "title": job.title,
+                            "company": job.company,
+                            "description": job.description,
+                            "location": job.location,
+                            "salary": job.salary,
+                            "is_remote": job.is_remote,
+                            "job_url": job.job_url,
+                            "posted_date": job.posted_date,
+                            "job_category": job.job_category,
+                        }
+                        jobs.append(job_dict)
+                    
+                    # Re-score with AI
+                    resume_summary = "EdTech and L&D professional with AI/SaaS experience"
+                    for job in jobs:
+                        score_data = ai_agent.score_job(job, resume_summary)
+                        job['match_score'] = score_data['score']
+                        job['match_reasoning'] = score_data['reasoning']
+                    
+                    st.session_state.jobs = sorted(jobs, key=lambda x: x.get('match_score', 0), reverse=True)
+                    st.success(f"✅ Loaded {len(jobs)} cached jobs from database (No API call!)")
+                    streamlit_logger.info(f"Loaded {len(jobs)} cached jobs")
+                else:
+                    st.warning("No cached jobs found. Try searching for new jobs first!")
+                    streamlit_logger.warning("No cached jobs available")
+            
+            except Exception as e:
+                st.error(f"Failed to load cached jobs: {e}")
+                streamlit_logger.error(f"Load cached error: {e}", exc_info=True)
     
     # Display jobs
     if st.session_state.jobs:
