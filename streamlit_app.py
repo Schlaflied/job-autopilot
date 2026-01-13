@@ -546,7 +546,8 @@ elif page == "📄 Resume Export":
     """, unsafe_allow_html=True)
     
     # ===== STEP 1: Upload Master Resume =====
-    with st.expander("📤 Step 1: Upload Master Resume", expanded=not st.session_state.resume_data):
+    with st.container(border=True):
+        st.markdown("### 📤 Step 1: Upload Master Resume")
         uploaded_file = st.file_uploader("Upload your master resume", type=["md", "pdf", "docx"])
         
         if uploaded_file and (not st.session_state.resume_data or uploaded_file.name != st.session_state.get('last_uploaded_file', '')):
@@ -573,17 +574,19 @@ elif page == "📄 Resume Export":
 
     # ===== STEP 2: Template Selection =====
     if st.session_state.resume_data:
-        st.markdown("### 🎨 Step 2: Choose Template")
-        
-        # Grid layout for templates
-        template_options = [
-            {"name": "classic_single_column", "display": "Classic Single", "desc": "Clean & ATS Optimized", "img": "classic_single.jpg"},
-            {"name": "modern_single_column", "display": "Modern Single", "desc": "Sleek & Minimalist", "img": "modern_single.jpg"},
-            {"name": "classic_two_column", "display": "Classic Two-Column", "desc": "Professional Layout", "img": "classic_two.jpg"},
-            {"name": "modern_two_column", "display": "Modern Two-Column", "desc": "Creative & Bold", "img": "modern_two.jpg"}
-        ]
-        
-        cols = st.columns(4)
+        st.write("")
+        with st.container(border=True):
+            st.markdown("### 🎨 Step 2: Choose Template")
+            
+            # Grid layout for templates
+            template_options = [
+                {"name": "classic_single_column", "display": "Classic Single", "desc": "Clean & ATS Optimized", "img": "classic_single.jpg"},
+                {"name": "modern_single_column", "display": "Modern Single", "desc": "Sleek & Minimalist", "img": "modern_single.jpg"},
+                {"name": "classic_two_column", "display": "Classic Two-Column", "desc": "Professional Layout", "img": "classic_two.jpg"},
+                {"name": "modern_two_column", "display": "Modern Two-Column", "desc": "Creative & Bold", "img": "modern_two.jpg"}
+            ]
+            
+            cols = st.columns(4)
         for i, t in enumerate(template_options):
             with cols[i]:
                 # Use custom HTML card for better control than streamlit-card
@@ -606,77 +609,80 @@ elif page == "📄 Resume Export":
     
     # ===== STEP 3: Customize Resume =====
     if st.session_state.selected_template:
-        st.markdown("### ✂️ Step 3: Customize Content")
-        
-        template_config = resume_generator.load_template(st.session_state.selected_template)
-        
-        if template_config and st.session_state.resume_data:
+        st.write("")
+        with st.container(border=True):
+            st.markdown("### ✂️ Step 3: Customize Content")
             
-            tabs = st.tabs(["📝 Content", "📐 Layout & Order"])
+            template_config = resume_generator.load_template(st.session_state.selected_template)
             
-            with tabs[0]:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    st.markdown("**Professional Summary**")
-                    new_summary = st.text_area(
-                        "Edit Summary", 
-                        value=st.session_state.resume_data.get('summary', ''),
-                        height=150,
-                        label_visibility="collapsed"
-                    )
-                    st.session_state.resume_data['summary'] = new_summary
+            if template_config and st.session_state.resume_data:
                 
-                with col2:
-                    st.markdown("**Contact Info**")
-                    contact = st.session_state.resume_data.get('contact', {})
-                    contact['email'] = st.text_input("Email", contact.get('email', ''))
-                    contact['phone'] = st.text_input("Phone", contact.get('phone', ''))
-                    contact['location'] = st.text_input("Location", contact.get('location', ''))
-                    st.session_state.resume_data['contact'] = contact
-            
-            with tabs[1]:
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**Section Ordering**")
-                    st.caption("Drag and drop items to reorder sections.")
-                    
-                    # Initialize user order
-                    default_order = template_config.get('section_order', ['summary', 'experience', 'skills', 'education'])
-                    if 'custom_section_order' not in st.session_state:
-                         st.session_state.custom_section_order = default_order
-                    
-                    # Sortable Component
-                    try:
-                        from streamlit_sortables import sort_items
-                        sorted_sections = sort_items(
-                            st.session_state.custom_section_order,
-                            direction='vertical'
+                tabs = st.tabs(["📝 Content", "📐 Layout & Order"])
+                
+                with tabs[0]:
+                    col1, col2 = st.columns([2, 1])
+                    with col1:
+                        st.markdown("**Professional Summary**")
+                        new_summary = st.text_area(
+                            "Edit Summary", 
+                            value=st.session_state.resume_data.get('summary', ''),
+                            height=150,
+                            label_visibility="collapsed"
                         )
-                        # Detect change
-                        if sorted_sections != st.session_state.custom_section_order:
-                            st.session_state.custom_section_order = sorted_sections
-                            st.rerun()
-                    except ImportError:
-                        st.error("Please install streamlit-sortables to use this feature.")
-                    except Exception as e:
-                        st.error(f"Error loading sortables: {e}")
-                                
-                with col2:
-                    st.markdown("**Formatting**")
-                    st.slider("Line Spacing", 0.8, 1.5, 1.0, 0.1, key="spacing_slider")
+                        st.session_state.resume_data['summary'] = new_summary
                     
-                    # Word Count
-                    wc = resume_generator._count_words(st.session_state.resume_data)
-                    cap = 700 if template_config.get('layout') == 'two_column' else 600
-                    st.metric("Word Count", f"{wc} / {cap}", delta=cap-wc)
-                    if wc > cap:
-                        st.warning("⚠️ Resume is too long for 1 page!")
+                    with col2:
+                        st.markdown("**Contact Info**")
+                        contact = st.session_state.resume_data.get('contact', {})
+                        contact['email'] = st.text_input("Email", contact.get('email', ''))
+                        contact['phone'] = st.text_input("Phone", contact.get('phone', ''))
+                        contact['location'] = st.text_input("Location", contact.get('location', ''))
+                        st.session_state.resume_data['contact'] = contact
+                
+                with tabs[1]:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**Section Ordering**")
+                        st.caption("Drag and drop items to reorder sections.")
+                        
+                        # Initialize user order
+                        default_order = template_config.get('section_order', ['summary', 'experience', 'skills', 'education'])
+                        if 'custom_section_order' not in st.session_state:
+                             st.session_state.custom_section_order = default_order
+                        
+                        # Sortable Component
+                        try:
+                            from streamlit_sortables import sort_items
+                            sorted_sections = sort_items(
+                                st.session_state.custom_section_order,
+                                direction='vertical'
+                            )
+                            # Detect change
+                            if sorted_sections != st.session_state.custom_section_order:
+                                st.session_state.custom_section_order = sorted_sections
+                                st.rerun()
+                        except ImportError:
+                            st.error("Please install streamlit-sortables to use this feature.")
+                        except Exception as e:
+                            st.error(f"Error loading sortables: {e}")
+                                    
+                    with col2:
+                        st.markdown("**Formatting**")
+                        st.slider("Line Spacing", 0.8, 1.5, 1.0, 0.1, key="spacing_slider")
+                        
+                        # Word Count
+                        wc = resume_generator._count_words(st.session_state.resume_data)
+                        cap = 700 if template_config.get('layout') == 'two_column' else 600
+                        st.metric("Word Count", f"{wc} / {cap}", delta=cap-wc)
+                        if wc > cap:
+                            st.warning("⚠️ Resume is too long for 1 page!")
     
     # ===== STEP 4: AI Compression =====
     if st.session_state.selected_template and st.session_state.resume_data:
-        st.markdown("### 🤖 Step 4: AI Compression")
-        
-        with st.expander("Use AI to fit 1-Page Constraint", expanded=True):
+        st.write("")
+        with st.container(border=True):
+            st.markdown("### 🤖 Step 4: AI Compression")
+            
             col1, col2 = st.columns([1, 1])
             with col1:
                 st.info("Select a job from your 'Job Search' results to tailor this resume specifically for that role.")
@@ -715,113 +721,117 @@ elif page == "📄 Resume Export":
     
     # ===== STEP 5: ATS Score =====
     if st.session_state.compressed_resume:
-        st.markdown("### 📊 Step 5: ATS Analysis")
-        
-        # Calculate score automatically if job selected
-        if selected_job:
-            resume_text = json.dumps(st.session_state.compressed_resume)
-            jd_text = selected_job.get('description', '')
-            res = ats_scorer.score_resume(resume_text, jd_text)
+        st.write("")
+        with st.container(border=True):
+            st.markdown("### 📊 Step 5: ATS Analysis")
             
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Match Score", f"{res['score']}%", delta="High Match" if res['score']>70 else "Low Match")
-            c2.metric("Missing Keywords", len(res['missing_keywords']), delta_color="inverse")
-            c3.metric("Keyword Density", "Optimal")
-            style_metric_cards()
-            
-            if res['missing_keywords']:
-                st.warning(f"**Missing Keywords**: {', '.join(res['missing_keywords'][:5])}")
-        else:
-            st.info("Select a target job above to see ATS Score.")
+            # Calculate score automatically if job selected
+            if selected_job:
+                resume_text = json.dumps(st.session_state.compressed_resume)
+                jd_text = selected_job.get('description', '')
+                res = ats_scorer.score_resume(resume_text, jd_text)
+                
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Match Score", f"{res['score']}%", delta="High Match" if res['score']>70 else "Low Match")
+                c2.metric("Missing Keywords", len(res['missing_keywords']), delta_color="inverse")
+                c3.metric("Keyword Density", "Optimal")
+                style_metric_cards()
+                
+                if res['missing_keywords']:
+                    st.warning(f"**Missing Keywords**: {', '.join(res['missing_keywords'][:5])}")
+            else:
+                st.info("Select a target job above to see ATS Score.")
 
     # ===== STEP 6: Export =====
     if st.session_state.compressed_resume or st.session_state.resume_data:
-        st.markdown("### 💾 Step 6: Export & Save")
-        
-        # Determine which resume to export
-        export_data = st.session_state.compressed_resume if st.session_state.compressed_resume else st.session_state.resume_data
-        
-        # Load Template
-        t_conf = None
-        if st.session_state.selected_template:
-            t_conf = resume_generator.load_template(st.session_state.selected_template)
+        st.write("")
+        with st.container(border=True):
+            st.markdown("### 💾 Step 6: Export & Save")
             
-        if not t_conf:
-             st.error("⚠️ Template not matched. Defaulting to standard layout.")
-             t_conf = {"name": "default", "section_order": ["summary", "experience", "education", "skills"], "layout": "single_column"}
-        
-        # Apply Custom Order if exists
-        if 'custom_section_order' in st.session_state:
-            t_conf['section_order'] = st.session_state.custom_section_order
+            # Determine which resume to export
+            export_data = st.session_state.compressed_resume if st.session_state.compressed_resume else st.session_state.resume_data
+            
+            # Load Template
+            t_conf = None
+            if st.session_state.selected_template:
+                t_conf = resume_generator.load_template(st.session_state.selected_template)
+                
+            if not t_conf:
+                 st.error("⚠️ Template not matched. Defaulting to standard layout.")
+                 t_conf = {"name": "default", "section_order": ["summary", "experience", "education", "skills"], "layout": "single_column"}
+            
+            # Apply Custom Order if exists
+            if 'custom_section_order' in st.session_state:
+                t_conf['section_order'] = st.session_state.custom_section_order
 
-        # Apply Template
-        final_data = resume_generator.apply_template(export_data, t_conf)
-        
-        # Format selection guide
-        st.info("Ready to export! Click 'Generate Files' to prepare your download.")
-        
-        if st.button("🚀 Generate PDF & DOCX Files", type="primary", use_container_width=True):
-             with st.spinner("Generating documents..."):
-                try:
-                    # Generate PDF
-                    pdf_name = f"Resume_{final_data.get('name', 'User').replace(' ', '_')}.pdf"
-                    pdf_path = resume_generator.export_pdf(final_data, pdf_name)
-                    st.session_state.export_pdf_path = pdf_path
-                    
-                    # Generate DOCX
-                    docx_name = f"Resume_{final_data.get('name', 'User').replace(' ', '_')}.docx"
-                    docx_path = resume_generator.export_docx(final_data, docx_name)
-                    st.session_state.export_docx_path = docx_path
-                    
-                    # Save to DB (Background)
+            # Apply Template
+            final_data = resume_generator.apply_template(export_data, t_conf)
+            
+            # Format selection guide
+            st.info("Ready to export! Click 'Generate Files' to prepare your download.")
+            
+            if st.button("🚀 Generate PDF & DOCX Files", type="primary", use_container_width=True):
+                 with st.spinner("Generating documents..."):
                     try:
-                        from modules.database import ResumeVersion, SessionLocal
-                        db = SessionLocal()
-                        new_version = ResumeVersion(
-                            template_name=st.session_state.selected_template,
-                            resume_json=final_data,
-                            pdf_path=pdf_path,
-                            docx_path=docx_path,
-                            job_id=selected_job.get('id') if selected_job and isinstance(selected_job, dict) else None
-                        )
-                        db.add(new_version)
-                        db.commit()
-                        db.close()
-                    except Exception as e:
-                        print(f"DB Save Error: {e}")
+                        # Generate PDF
+                        pdf_name = f"Resume_{final_data.get('name', 'User').replace(' ', '_')}.pdf"
+                        pdf_path = resume_generator.export_pdf(final_data, pdf_name)
+                        st.session_state.export_pdf_path = pdf_path
                         
-                    st.success("✅ Files generated successfully!")
-                    st.rerun() # Rerun to show download buttons
-                    
-                except Exception as e:
-                    st.error(f"Generation failed: {e}")
+                        # Generate DOCX
+                        docx_name = f"Resume_{final_data.get('name', 'User').replace(' ', '_')}.docx"
+                        docx_path = resume_generator.export_docx(final_data, docx_name)
+                        st.session_state.export_docx_path = docx_path
+                        
+                        # Save to DB (Background)
+                        try:
+                            from modules.database import ResumeVersion, SessionLocal
+                            db = SessionLocal()
+                            new_version = ResumeVersion(
+                                template_name=st.session_state.selected_template,
+                                resume_json=final_data,
+                                pdf_path=pdf_path,
+                                docx_path=docx_path,
+                                job_id=selected_job.get('id') if selected_job and isinstance(selected_job, dict) else None
+                            )
+                            db.add(new_version)
+                            db.commit()
+                            db.close()
+                        except Exception as e:
+                            print(f"DB Save Error: {e}")
+                            
+                        st.success("✅ Files generated successfully!")
+                        st.rerun() # Rerun to show download buttons
+                        
+                    except Exception as e:
+                        st.error(f"Generation failed: {e}")
 
-        # Show Download Buttons only if files exist
-        if 'export_pdf_path' in st.session_state and os.path.exists(st.session_state.export_pdf_path):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                with open(st.session_state.export_pdf_path, "rb") as f:
-                    st.download_button(
-                        label="📄 Download PDF",
-                        data=f,
-                        file_name=os.path.basename(st.session_state.export_pdf_path),
-                        mime="application/pdf",
-                        use_container_width=True,
-                        type="secondary"
-                    )
-            
-            with col2:
-                if 'export_docx_path' in st.session_state and os.path.exists(st.session_state.export_docx_path):
-                     with open(st.session_state.export_docx_path, "rb") as f:
+            # Show Download Buttons only if files exist
+            if 'export_pdf_path' in st.session_state and os.path.exists(st.session_state.export_pdf_path):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    with open(st.session_state.export_pdf_path, "rb") as f:
                         st.download_button(
-                            label="📝 Download DOCX",
+                            label="📄 Download PDF",
                             data=f,
-                            file_name=os.path.basename(st.session_state.export_docx_path),
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            file_name=os.path.basename(st.session_state.export_pdf_path),
+                            mime="application/pdf",
                             use_container_width=True,
                             type="secondary"
                         )
+                
+                with col2:
+                    if 'export_docx_path' in st.session_state and os.path.exists(st.session_state.export_docx_path):
+                         with open(st.session_state.export_docx_path, "rb") as f:
+                            st.download_button(
+                                label="📝 Download DOCX",
+                                data=f,
+                                file_name=os.path.basename(st.session_state.export_docx_path),
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True,
+                                type="secondary"
+                            )
 elif page == "⚙️ Settings":
     st.markdown('<h1 class="main-header">Settings ⚙️</h1>', unsafe_allow_html=True)
     
