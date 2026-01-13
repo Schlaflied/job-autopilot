@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, Da
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
+from typing import Dict
 import os
 from dotenv import load_dotenv
 from modules.logger_config import app_logger
@@ -12,31 +13,114 @@ from modules.logger_config import app_logger
 # Load environment variables
 load_dotenv()
 
-# Database URL from environment
+# ============================================================
+# Database Configuration (Phase 2 - Resume Export Feature)
+# Supports: SQLite (local), PostgreSQL (cloud/local), MySQL
+# ============================================================
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    app_logger.warning("DATABASE_URL not found - running in DEMO mode (no database)")
-    # Use SQLite in-memory database for demo mode
-    DATABASE_URL = "sqlite:///:memory:"
-    DEMO_MODE = True
+    # No DATABASE_URL → Fallback to local SQLite
+    DATABASE_URL = "sqlite:///data/job_autopilot.db"
+    app_logger.warning("⚠️  No DATABASE_URL found, using local SQLite")
+    app_logger.info(f"📂 Database file: data/job_autopilot.db")
+    DEMO_MODE = False
+    DB_TYPE = "sqlite"
 else:
     DEMO_MODE = False
+    # Detect database type
+    if DATABASE_URL.startswith("sqlite"):
+        DB_TYPE = "sqlite"
+    elif DATABASE_URL.startswith("postgresql"):
+        DB_TYPE = "postgresql"
+    elif DATABASE_URL.startswith("mysql"):
+        DB_TYPE = "mysql"
+    else:
+        DB_TYPE = "unknown"
 
 # Create engine
 try:
-    engine = create_engine(DATABASE_URL, echo=False)
+    # Ensure data directory exists for SQLite
+    if DB_TYPE == "sqlite" and "data/" in DATABASE_URL:
+        os.makedirs("data", exist_ok=True)
+    
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,  # Set to True for SQL debugging
+        pool_pre_ping=True  # Check connection health before using
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base = declarative_base()
-    app_logger.info(f"Database engine created ({'DEMO mode' if DEMO_MODE else 'Production mode'})")
+    
+    # Don't print full DATABASE_URL (may contain password)
+    safe_url = DATABASE_URL.split("@")[0] if "@" in DATABASE_URL else DATABASE_URL
+    app_logger.info(f"✅ Database connected: {DB_TYPE.upper()} ({safe_url})")
+    
 except Exception as e:
     app_logger.error(f"Failed to create database engine: {e}")
-    # Fallback to in-memory SQLite
+    # Fallback to SQLite
+    app_logger.warning("⚠️  Falling back to SQLite in-memory database")
     engine = create_engine("sqlite:///:memory:", echo=False)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base = declarative_base()
     DEMO_MODE = True
-    app_logger.warning("Using fallback in-memory database")
+    DB_TYPE = "sqlite"
+
+def get_database_info() -> Dict:
+    """
+    Get human-readable database information
+    For display in Streamlit Settings page
+    
+    Returns:
+        dict: Database type, location, and suitability info
+    """
+    db_url = os.getenv("DATABASE_URL", "sqlite:///data/job_autopilot.db")
+    
+    if db_url.startswith("sqlite"):
+        db_file = db_url.replace("sqlite:///", "")
+        if db_file == ":memory:":
+            return {
+                "type": "SQLite",
+                "location": "In-Memory (Demo Mode)",
+                "file": ":memory:",
+                "suitable_for": "Testing only",
+                "persistent": False
+            }
+        else:
+            return {
+                "type": "SQLite",
+                "location": "Local",
+                "file": db_file,
+                "suitable_for": "Personal use, single user",
+                "persistent": True
+            }
+    
+    elif db_url.startswith("postgresql"):
+        host = db_url.split("@")[1].split("/")[0] if "@" in db_url else "localhost"
+        
+        if "neon" in host or "supabase" in host:
+            provider = "Neon/Supabase"
+            location = "Cloud"
+        else:
+            provider = "PostgreSQL"
+            location = "Local/Self-hosted"
+        
+        return {
+            "type": "PostgreSQL",
+            "location": location,
+            "provider": provider,
+            "suitable_for": "Production, multi-device, high performance",
+            "persistent": True
+        }
+    
+    else:
+        return {
+            "type": "Unknown",
+            "location": "Unknown",
+            "suitable_for": "Unknown",
+            "persistent": False
+        }
 
 # ============================================================
 # Models
@@ -61,6 +145,11 @@ class Job(Base):
     ats_missing_keywords = Column(JSON)  # Store as JSON instead of ARRAY for compatibility
     job_category = Column(String(50))  # 'edtech', 'ai_pm', 'automation'
     scraped_source = Column(String(20), default='apify')
+    
+    # NEW: Resume Export fields (Phase 2)
+    selected_template = Column(String(50))  # e.g., "classic_single_column"
+    resume_version_id = Column(Integer, ForeignKey("resume_versions.id"))
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -68,7 +157,10 @@ class Job(Base):
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
 
 class ResumeVersion(Base):
-    """Resume versions table"""
+    """
+    Resume versions table (Phase 2 - Resume Export Feature)
+    Stores all tailored resume versions with templates and ATS scores
+    """
     __tablename__ = "resume_versions"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -76,7 +168,21 @@ class ResumeVersion(Base):
     resume_json = Column(JSON)  # JSONB in PostgreSQL
     pdf_path = Column(String)
     docx_path = Column(String)
-    ats_optimized_keywords = Column(JSON)  # Store as JSON for compatibility
+    
+    # NEW: Template and compression info
+    template_name = Column(String(50))  # e.g., "classic_single_column"
+    compression_mode = Column(String(20))  # 'aggressive', 'balanced', 'conservative'
+    word_count = Column(Integer)  # Approximate word count
+    
+    # NEW: ATS optimization
+    ats_score = Column(Integer)  # 0-100
+    ats_optimized_keywords = Column(JSON)  # Matched keywords
+    ats_missing_keywords = Column(JSON)  # Missing keywords
+    
+    # NEW: Privacy compliance
+    user_consent = Column(Boolean, default=False)  # User agreed to store data
+    retention_days = Column(Integer, default=90)  # Auto-delete after X days
+    
     version_number = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     

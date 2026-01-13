@@ -1,0 +1,46 @@
+{
+    "name": "Classic Single Column",
+    "description": "Traditional ATS-friendly layout with single column",
+    "layout": "single_column",
+    "sections": [
+        "header",
+        "summary",
+        "experience",
+        "education",
+        "skills"
+    ],
+    "section_order": [
+        "summary",
+        "experience",
+        "skills",
+        "education"
+    ],
+    "line_spacing": 1.0,
+    "margins": {
+        "top": 0.5,
+        "bottom": 0.5,
+        "left": 0.7,
+        "right": 0.7
+    },
+    "fonts": {
+        "name": {
+            "family": "Arial",
+            "size": 16,
+            "bold": true
+        },
+        "heading": {
+            "family": "Arial",
+            "size": 11,
+            "bold": true
+        },
+        "body": {
+            "family": "Arial",
+            "size": 10,
+            "bold": false
+        }
+    },
+    "colors": {
+        "text": "#000000",
+        "headings": "#000000"
+    }
+}

@@ -1,0 +1,48 @@
+{
+    "name": "Modern Single Column",
+    "description": "Clean design with accent colors and modern typography",
+    "layout": "single_column",
+    "sections": [
+        "header",
+        "summary",
+        "experience",
+        "skills",
+        "education"
+    ],
+    "section_order": [
+        "summary",
+        "skills",
+        "experience",
+        "education"
+    ],
+    "line_spacing": 1.15,
+    "use_accent_color": true,
+    "accent_color": "#667eea",
+    "margins": {
+        "top": 0.5,
+        "bottom": 0.5,
+        "left": 0.7,
+        "right": 0.7
+    },
+    "fonts": {
+        "name": {
+            "family": "Calibri",
+            "size": 18,
+            "bold": true
+        },
+        "heading": {
+            "family": "Calibri",
+            "size": 11,
+            "bold": true
+        },
+        "body": {
+            "family": "Calibri",
+            "size": 10,
+            "bold": false
+        }
+    },
+    "colors": {
+        "text": "#000000",
+        "headings": "#667eea"
+    }
+}

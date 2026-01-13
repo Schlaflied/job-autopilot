@@ -1,0 +1,50 @@
+{
+    "name": "Classic Two Column",
+    "description": "Professional dual-column layout with sidebar",
+    "layout": "two_column",
+    "left_column": [
+        "contact",
+        "skills",
+        "education"
+    ],
+    "right_column": [
+        "summary",
+        "experience"
+    ],
+    "section_order": [
+        "summary",
+        "experience",
+        "skills",
+        "education"
+    ],
+    "left_width": 0.35,
+    "right_width": 0.65,
+    "line_spacing": 1.0,
+    "margins": {
+        "top": 0.5,
+        "bottom": 0.5,
+        "left": 0.6,
+        "right": 0.6
+    },
+    "fonts": {
+        "name": {
+            "family": "Times New Roman",
+            "size": 16,
+            "bold": true
+        },
+        "heading": {
+            "family": "Times New Roman",
+            "size": 11,
+            "bold": true
+        },
+        "body": {
+            "family": "Times New Roman",
+            "size": 10,
+            "bold": false
+        }
+    },
+    "colors": {
+        "text": "#000000",
+        "headings": "#000000"
+    }
+}

@@ -19,7 +19,17 @@
 - 💾 **Database Caching** (Neon PostgreSQL + optional Redis)
 - 📦 **Load Cached Jobs** (reuse previous searches, save API quota)
 
-### 📝 **Resume Optimization**
+### 📄 **Resume Export & Optimization** ✨ NEW
+- 📤 **Multi-Format Upload**: Support PDF, DOCX, and Markdown master resumes
+- 🎨 **Professional Templates**: 4 ATS-friendly templates (single/two-column, classic/modern)
+- 🔄 **AI Compression**: Optional smart compression to fit 1-page (preserves critical info)
+- 📊 **ATS Scoring**: Real-time ATS compatibility score with keyword matching
+- 🎯 **Job-Tailored Resumes**: AI optimizes resume for each job description
+- 📥 **Export Options**: Download as PDF or DOCX with proper formatting
+- 🔧 **Drag-and-Drop Sections**: Reorder resume sections interactively
+- 🖼️ **Live Preview**: Real-time preview before export
+
+### 📝 **Legacy Resume Optimization**
 - ✍️ **AI Resume Tailoring** (GPT-4o-mini optimized for each job)
 - 📄 **ATS-Friendly Formatting** (.docx + PDF export)
 - 🎯 **Keyword Matching** (auto-detect missing keywords)
@@ -61,7 +71,7 @@
 | **Job Scraping** | Apify (Indeed Actor) |
 | **HR Contacts** | Selenium + undetected-chromedriver (LinkedIn) |
 | **Email** | Gmail API (OAuth 2.0) |
-| **Resume** | python-docx, ReportLab (PDF) |
+| **Resume** | python-docx, ReportLab (PDF), docx2txt, pdfminer.six |
 | **ORM** | SQLAlchemy 2.0 |
 | **Deployment** | Docker, Docker Compose |
 
@@ -122,10 +132,10 @@ cp .env.example .env
 python scripts/init_database.py
 
 # 7. Run the application
-streamlit run streamlit_app.py --server.port=7001
+streamlit run streamlit_app.py --server.port=8501
 ```
 
-**Access the app**: http://localhost:7001
+**Access the app**: http://localhost:8501
 
 ---
 
@@ -235,7 +245,7 @@ LINKEDIN_ACCOUNT_1_PASSWORD=your_password_here
 docker-compose up -d
 
 # Access services
-# Streamlit: http://localhost:7001
+# Streamlit: http://localhost:8501
 # Flask API: http://localhost:5000
 
 # View logs
@@ -455,17 +465,17 @@ pip install -r requirements.txt
 - You need to search jobs first (to populate database)
 - Click "🔍 Search Jobs" before using "📦 Load Cached"
 
-### Port 7001 already in use
+### Port 8501 already in use
 ```bash
 # Windows
-netstat -ano | findstr :7001
+netstat -ano | findstr :8501
 taskkill /PID <PID> /F
 
 # macOS/Linux
-lsof -ti:7001 | xargs kill -9
+lsof -ti:8501 | xargs kill -9
 
 # Or use different port
-streamlit run streamlit_app.py --server.port=7002
+streamlit run streamlit_app.py --server.port=8502
 ```
 
 ---
@@ -504,6 +514,7 @@ For full details, please read the [LICENSE](LICENSE) file.
 - **Apify** for job scraping infrastructure
 - **Neon** for generous free PostgreSQL tier
 - **Streamlit** for amazing UI framework
+- **[Resume-Matcher](https://github.com/srbhr/Resume-Matcher)** for inspiring our PDF/DOCX parsing approach using `pdfminer.six` and `docx2txt`
 - Job seekers worldwide struggling with manual applications 💪
 
 ---

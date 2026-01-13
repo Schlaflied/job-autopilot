@@ -109,9 +109,9 @@ sessions/
 *.json
 !.env.example
 !package.json
+!data/templates/*.json
 
 # Personal documents
-Yuting Sun Master Resume.md
 
 # pyenv
 .python-version
@@ -167,6 +167,7 @@ cython_debug/
 
 # ============================================================
 # Project-specific
+Yuting Sun Master Resume.md
 # ============================================================
 
 # Data files

@@ -1,0 +1,55 @@
+{
+    "name": "Modern Two Column",
+    "description": "Contemporary dual-column with sidebar background",
+    "layout": "two_column",
+    "left_column": [
+        "contact",
+        "skills",
+        "certifications"
+    ],
+    "right_column": [
+        "summary",
+        "experience",
+        "education"
+    ],
+    "section_order": [
+        "summary",
+        "experience",
+        "skills",
+        "education",
+        "certifications"
+    ],
+    "left_width": 0.30,
+    "right_width": 0.70,
+    "sidebar_background": "#f5f5f5",
+    "line_spacing": 1.1,
+    "use_accent_color": true,
+    "accent_color": "#764ba2",
+    "margins": {
+        "top": 0.4,
+        "bottom": 0.4,
+        "left": 0.5,
+        "right": 0.5
+    },
+    "fonts": {
+        "name": {
+            "family": "Helvetica",
+            "size": 18,
+            "bold": true
+        },
+        "heading": {
+            "family": "Helvetica",
+            "size": 11,
+            "bold": true
+        },
+        "body": {
+            "family": "Helvetica",
+            "size": 10,
+            "bold": false
+        }
+    },
+    "colors": {
+        "text": "#000000",
+        "headings": "#764ba2"
+    }
+}

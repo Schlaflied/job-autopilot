@@ -12,7 +12,10 @@ from modules.logger_config import streamlit_logger
 from modules.job_scraper import JobScraper
 from modules.ai_agent import ai_agent
 from modules.database import SessionLocal, Job, Application
+from modules.resume_generator import resume_generator
+from modules.ats_scorer import ats_scorer
 from datetime import datetime
+import json
 
 # Page configuration
 st.set_page_config(
@@ -140,7 +143,7 @@ with st.sidebar:
     
     page = st.radio(
         "Navigate",
-        ["🔍 Job Search", "📊 Dashboard", "⚙️ Settings"],
+        ["🔍 Job Search", "📄 Resume Export", "📊 Dashboard", "⚙️ Settings"],
         label_visibility="collapsed"
     )
     
@@ -466,6 +469,350 @@ elif page == "📊 Dashboard":
     with col4:
         st.markdown("### 📅 Interview")
         st.metric("Scheduled", 0)
+
+elif page == "📄 Resume Export":
+    st.markdown('<h1 class="main-header">Resume Export 📄</h1>', unsafe_allow_html=True)
+    st.markdown("Create tailored, ATS-optimized resumes with AI")
+    
+    # Initialize session state for resume export
+    if 'resume_data' not in st.session_state:
+        st.session_state.resume_data = None
+    if 'selected_template' not in st.session_state:
+        st.session_state.selected_template = None
+    if 'compressed_resume' not in st.session_state:
+        st.session_state.compressed_resume = None
+    
+    # Step progress indicator
+    steps = ["📤 Upload", "🎨 Template", "✂️ Customize", "🤖 AI Compress", "📊 ATS Score", "💾 Export"]
+    current_step = 0
+    if st.session_state.resume_data:
+        current_step = 1
+    if st.session_state.selected_template:
+        current_step = 2
+    if st.session_state.compressed_resume:
+        current_step = 4
+    
+    # Visual progress bar
+    progress_cols = st.columns(len(steps))
+    for i, step in enumerate(steps):
+        with progress_cols[i]:
+            if i < current_step:
+                st.markdown(f"✅ **{step}**")
+            elif i == current_step:
+                st.markdown(f"🔵 **{step}**")
+            else:
+                st.markdown(f"⚪ {step}")
+    
+    st.markdown("---")
+    
+    # ===== STEP 1: Upload Master Resume =====
+    st.markdown("### 📤 Step 1: Upload Master Resume")
+    
+    uploaded_file = st.file_uploader(
+        "Upload your master resume",
+        type=["md", "pdf", "docx"],
+        help="Supports Markdown, PDF, and Word documents"
+    )
+    
+    # Only parse if file changed
+    if uploaded_file and (not st.session_state.resume_data or 
+                          uploaded_file.name != st.session_state.get('last_uploaded_file', '')):
+        file_type = uploaded_file.name.split('.')[-1].lower()
+        
+        with st.spinner(f"📄 Parsing {file_type.upper()} resume..."):
+            try:
+                # Save uploaded file temporarily
+                temp_path = f"data/temp_resume.{file_type}"
+                with open(temp_path, 'wb') as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # Parse based on file type
+                if file_type == "md":
+                    resume_data = resume_generator.load_master_resume(temp_path)
+                elif file_type == "pdf":
+                    resume_data = resume_generator.parse_pdf_resume(temp_path)
+                elif file_type == "docx":
+                    resume_data = resume_generator.parse_docx_resume(temp_path)
+                
+                if resume_data:
+                    st.session_state.resume_data = resume_data
+                    st.session_state.last_uploaded_file = uploaded_file.name
+                    st.success(f"✅ Resume loaded: {resume_data.get('name', 'Unknown')}")
+                    
+                    # Show resume preview
+                    with st.expander("👁️ Preview Resume"):
+                        st.json(resume_data)
+                else:
+                    st.error("❌ Failed to parse resume. Please check the file format.")
+            
+            except Exception as e:
+                st.error(f"❌ Error parsing resume: {e}")
+                streamlit_logger.error(f"Resume parsing error: {e}", exc_info=True)
+    
+    elif st.session_state.resume_data:
+        # Already loaded
+        st.success(f"✅ Resume loaded: {st.session_state.resume_data.get('name', 'Unknown')}")
+        with st.expander("👁️ Preview Resume"):
+            st.json(st.session_state.resume_data)
+    
+    # ===== STEP 2: Template Selection =====
+    if st.session_state.resume_data:
+        st.markdown("---")
+        st.markdown("### 🎨 Step 2: Choose a Template")
+        
+        # Load template previews
+        template_options = [
+            {"name": "classic_single_column", "display": "Classic Single", "desc": "ATS-friendly", "img": "classic_single.jpg"},
+            {"name": "modern_single_column", "display": "Modern Single", "desc": "Clean design", "img": "modern_single.jpg"},
+            {"name": "classic_two_column", "display": "Classic Two-Column", "desc": "Professional", "img": "classic_two.jpg"},
+            {"name": "modern_two_column", "display": "Modern Two-Column", "desc": "Contemporary", "img": "modern_two.jpg"}
+        ]
+        
+        cols = st.columns(4)
+        for i, template in enumerate(template_options):
+            with cols[i]:
+                img_path = f"assets/templates/{template['img']}"
+                if os.path.exists(img_path):
+                    st.image(img_path, use_column_width=True, caption=template['display'])
+                else:
+                    st.info(f"🎨 {template['display']}")
+                
+                st.caption(template['desc'])
+                
+                if st.button("Select", key=f"select_{template['name']}", use_container_width=True):
+                    st.session_state.selected_template = template['name']
+                    # Don't rerun - just update state
+        
+        if st.session_state.selected_template:
+            st.info(f"📋 Current template: **{st.session_state.selected_template}**")
+    
+    # ===== STEP 3: Customize Resume =====
+    if st.session_state.selected_template:
+        st.markdown("---")
+        st.markdown("### ✂️ Step 3: Customize Resume")
+        
+        # Load template config
+        template_config = resume_generator.load_template(st.session_state.selected_template)
+        
+        if template_config:
+            # Section Reordering
+            st.markdown("#### 📋 Section Order")
+            st.caption("Drag to reorder sections (or use arrows)")
+            
+            current_sections = template_config.get('section_order', ['summary', 'experience', 'skills', 'education'])
+            
+            # Arrow button method (mobile-friendly)
+            col_sections = st.columns(4)
+            for idx, section in enumerate(current_sections):
+                with col_sections[idx % 4]:
+                    st.write(f"**{idx + 1}.** {section.title()}")
+                    subcol1, subcol2 = st.columns(2)
+                    with subcol1:
+                        if idx > 0 and st.button("⬆️", key=f"up_{section}"):
+                            current_sections[idx], current_sections[idx-1] = current_sections[idx-1], current_sections[idx]
+                    with subcol2:
+                        if idx < len(current_sections) - 1 and st.button("⬇️", key=f"down_{section}"):
+                            current_sections[idx], current_sections[idx+1] = current_sections[idx+1], current_sections[idx]
+            
+            # Line Spacing Adjustment
+            st.markdown("#### 📏 Line Spacing")
+            line_spacing = st.slider(
+                "Adjust line spacing to fit content on 1 page",
+                min_value=0.8,
+                max_value=1.5,
+                value=template_config.get('line_spacing', 1.0),
+                step=0.1,
+                help="Lower spacing = more content fits on 1 page"
+            )
+            
+            # Word Count Estimate
+            if st.session_state.resume_data:
+                word_count = resume_generator._count_words(st.session_state.resume_data)
+                layout = template_config.get('layout', 'single_column')
+                max_words = 700 if layout == 'two_column' else 600
+                
+                st.info(f"📊 Current word count: **{word_count}** words | Target: ≤{max_words} words")
+                
+                if word_count > max_words:
+                    st.warning(f"⚠️ Resume too long! Use AI compression to reduce to ~{max_words} words.")
+    
+    # ===== STEP 4: AI Compression =====
+    if st.session_state.selected_template and st.session_state.resume_data:
+        st.markdown("---")
+        st.markdown("### 🤖 Step 4: AI Compression (1-Page Constraint)")
+        
+        # Select a job for tailoring
+        st.markdown("#### 🎯 Select Target Job (Optional)")
+        
+        if st.session_state.jobs:
+            job_names = [f"{j.get('title', 'Unknown')} @ {j.get('company', 'Unknown')}" for j in st.session_state.jobs]
+            job_names.insert(0, "None - Generic compression")
+            
+            selected_job_idx = st.selectbox(
+                "Choose a job to tailor this resume for:",
+                range(len(job_names)),
+                format_func=lambda x: job_names[x]
+            )
+            
+            selected_job = None if selected_job_idx == 0 else st.session_state.jobs[selected_job_idx - 1]
+        else:
+            st.info("💡 No jobs found. Add some jobs from Job Search first, or proceed with generic compression.")
+            selected_job = None
+        
+        # Compression mode
+        st.markdown("#### ⚙️ Compression Strategy")
+        
+        st.warning("⚠️ **IMPORTANT**: Compression may remove details. Use 'No Compression' to keep full resume.")
+        
+        compression_mode = st.radio(
+            "How much to compress?",
+            ["No Compression (Keep Full Resume)", "Conservative (60%)", "Balanced (70%)", "Aggressive (80%)"],
+            index=0,
+            help="Higher compression = shorter resume. 'No Compression' keeps ALL details.",
+            horizontal=False
+        )
+        
+        mode_map = {
+            "No Compression (Keep Full Resume)": "none",
+            "Conservative (60%)": "conservative",
+            "Balanced (70%)": "balanced",
+            "Aggressive (80%)": "aggressive"
+        }
+        mode = mode_map[compression_mode]
+        
+        if st.button("🤖 Process Resume", type="primary"):
+            if mode == "none":
+                # No compression - just use original resume
+                st.session_state.compressed_resume = st.session_state.resume_data.copy()
+                st.session_state.compressed_resume['_word_count'] = resume_generator._count_words(st.session_state.resume_data)
+                st.success(f"✅ Using full resume ({st.session_state.compressed_resume['_word_count']} words)")
+            else:
+                # Compress with AI
+                with st.spinner("🤖 AI is optimizing your resume... (10-15 seconds)"):
+                    try:
+                        progress_bar = st.progress(0)
+                        
+                        # Prepare job description
+                        job_description = selected_job.get('description', 'General resume') if selected_job else "General resume"
+                        
+                        progress_bar.progress(30)
+                        
+                        # Compress
+                        compressed = resume_generator.compress_to_one_page(
+                            st.session_state.resume_data,
+                            job_description,
+                            template_config,
+                            mode
+                        )
+                        
+                        progress_bar.progress(100)
+                        
+                        if compressed:
+                            st.session_state.compressed_resume = compressed
+                            st.success(f"✅ Resume compressed to {compressed.get('_word_count', 0)} words!")
+                            
+                            # Show comparison
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric("Original", f"{resume_generator._count_words(st.session_state.resume_data)} words")
+                            with col2:
+                                st.metric("Compressed", f"{compressed.get('_word_count', 0)} words", 
+                                         delta=f"-{resume_generator._count_words(st.session_state.resume_data) - compressed.get('_word_count', 0)}")
+                        else:
+                            st.error("❌ Compression failed. Please try again.")
+                    
+                    except Exception as e:
+                        st.error(f"❌ Compression error: {e}")
+                        streamlit_logger.error(f"Compression error: {e}", exc_info=True)
+    
+    # ===== STEP 5: ATS Score =====
+    if st.session_state.compressed_resume and selected_job:
+        st.markdown("---")
+        st.markdown("### 📊 Step 5: ATS Score")
+        
+        if st.button("📊 Calculate ATS Score"):
+            with st.spinner("Analyzing resume vs job description..."):
+                try:
+                    resume_text = json.dumps(st.session_state.compressed_resume)
+                    jd_text = selected_job.get('description', '')
+                    
+                    ats_result = ats_scorer.score_resume(resume_text, jd_text)
+                    
+                    # Display score
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("ATS Match Score", f"{ats_result['score']}/100")
+                    with col2:
+                        st.metric("Missing Keywords", len(ats_result['missing_keywords']))
+                    with col3:
+                        score_class = "high" if ats_result['score'] >= 70 else ("medium" if ats_result['score'] >= 50 else "low")
+                        st.markdown(f"**Status:** {'✅ Good' if score_class == 'high' else ('⚠️ Moderate' if score_class == 'medium' else '❌ Low')}")
+                    
+                    # Missing keywords
+                    if ats_result['missing_keywords']:
+                        with st.expander("❌ Missing Keywords"):
+                            st.write(", ".join(ats_result['missing_keywords'][:10]))
+                    
+                    # Suggestions
+                    if ats_result['suggestions']:
+                        with st.expander("💡 Improvement Suggestions"):
+                            for suggestion in ats_result['suggestions']:
+                                st.markdown(f"- {suggestion}")
+                
+                except Exception as e:
+                    st.error(f"❌ ATS scoring error: {e}")
+    
+    # ===== STEP 6: Export =====
+    if st.session_state.compressed_resume or st.session_state.resume_data:
+        st.markdown("---")
+        st.markdown("### 💾 Step 6: Export Resume")
+        
+        # Determine which resume to export
+        export_data = st.session_state.compressed_resume if st.session_state.compressed_resume else st.session_state.resume_data
+        
+        # Apply template if selected
+        if st.session_state.selected_template:
+            template_config = resume_generator.load_template(st.session_state.selected_template)
+            if template_config:
+                export_data = resume_generator.apply_template(export_data, template_config)
+                st.success(f"✅ Template applied: {template_config['name']}")
+        
+        # Format selection guide
+        st.info("""
+📥 **Export Format Guide:**
+- **DOCX**: Editable format, best for ATS systems
+- **PDF**: Professional appearance, best for email attachments
+- **Recommendation**: Export both!
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📥 Download DOCX", type="primary", use_container_width=True):
+                with st.spinner("Generating DOCX..."):
+                    try:
+                        filename = f"resume_{export_data.get('name', 'user').replace(' ', '_')}.docx"
+                        path = resume_generator.export_docx(export_data, filename)
+                        st.success(f"✅ Resume exported: `{path}`")
+                    except Exception as e:
+                        st.error(f"❌ Export failed: {e}")
+                        streamlit_logger.error(f"DOCX export error: {e}", exc_info=True)
+        
+        with col2:
+            if st.button("📥 Download PDF", type="primary", use_container_width=True):
+                with st.spinner("Generating PDF..."):
+                    try:
+                        filename = f"resume_{export_data.get('name', 'user').replace(' ', '_')}.pdf"
+                        path = resume_generator.export_pdf(export_data, filename)
+                        st.success(f"✅ Resume exported: `{path}`")
+                    except Exception as e:
+                        st.error(f"❌ Export failed: {e}")
+                        streamlit_logger.error(f"PDF export error: {e}", exc_info=True)
+        
+        # Version History (placeholder)
+        st.markdown("---")
+        st.markdown("#### 📚 Version History")
+        st.info("💡 Version history feature coming soon! All exports will be saved automatically.")
 
 elif page == "⚙️ Settings":
     st.markdown('<h1 class="main-header">Settings ⚙️</h1>', unsafe_allow_html=True)
