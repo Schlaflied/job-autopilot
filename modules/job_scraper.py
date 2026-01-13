@@ -2,6 +2,7 @@
 # Apify-based Indeed job scraping with caching
 
 import os
+import json
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -131,10 +132,10 @@ class JobScraper:
                 ""
             )
             
-            # If still no job_url, log the raw data keys to help debug
+            # If still no job_url, log FULL raw data to help debug
             if not job_url:
                 scraper_logger.error(f"No job_url found! Available keys: {list(raw_job.keys())}")
-                scraper_logger.debug(f"Raw job data sample: {str(raw_job)[:500]}")
+                scraper_logger.error(f"FULL Raw job data: {json.dumps(raw_job, indent=2, default=str)}")
                 return {}
             
             # Extract posted date
@@ -179,13 +180,18 @@ class JobScraper:
                 raw_job.get("descriptionText", "") or raw_job.get("description", "")
             )
             
+            # Safe location check for is_remote
+            is_remote = raw_job.get("isRemote", False)
+            if location and isinstance(location, str):
+                is_remote = is_remote or ("remote" in location.lower())
+            
             processed = {
                 "title": raw_job.get("title", "Unknown Position"),
                 "company": company,
                 "description": raw_job.get("descriptionText") or raw_job.get("description") or "",
                 "location": location,
                 "salary": salary,
-                "is_remote": raw_job.get("isRemote", False) or ("remote" in location.lower()),
+                "is_remote": is_remote,
                 
                 # Date fields
                 "posted_date": posted_date,
