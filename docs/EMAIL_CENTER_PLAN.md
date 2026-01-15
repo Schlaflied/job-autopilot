@@ -45,6 +45,14 @@ pip install email-validator
 - **功能**: 显示手动标记为 Applied 的职位列表，支持 ↩️ Undo 撤销
 - **优势**: 管理更清晰，不挤占侧边栏空间
 
+### 8. 自定义邮件签名 / P.S. (个性化配置) 🎨
+
+- **需求**: 用户希望在邮件末尾自动附加个性化内容 (如开源项目链接、Portfolio)。
+- **实现**:
+    - 在 **Settings** 页新增 `Global Email Footer / P.S.` 输入框。
+    - AI 生成邮件算文后，自动追加此段落。
+    - **Use Case**: "P.S. This email was automated by my open-source project: [Link]" (展示技术实力)。
+
 ---
 
 ## 修改文件
