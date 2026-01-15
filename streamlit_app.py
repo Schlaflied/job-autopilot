@@ -178,6 +178,7 @@ with st.sidebar:
     st.metric("High Matches (8+)", len([j for j in st.session_state.jobs if j.get('match_score', 0) >= 8]))
     st.metric("Remote Jobs", len([j for j in st.session_state.jobs if j.get('is_remote', False)]))
 
+
 # Main content
 if page == "🔍 Job Search":
     st.markdown('<h1 class="main-header">Job Search 🔍</h1>', unsafe_allow_html=True)
@@ -507,29 +508,7 @@ if page == "🔍 Job Search":
                 
                 st.markdown("---")
 
-elif page == "📊 Dashboard":
-    st.markdown('<h1 class="main-header">Application Dashboard 📊</h1>', unsafe_allow_html=True)
-    
-    st.info("📋 Application tracking will be available once database is connected")
-    
-    # Demo kanban board
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown("### 📝 To Apply")
-        st.metric("Jobs", 3)
-    
-    with col2:
-        st.markdown("### ✉️ Sent")
-        st.metric("Applications", 0)
-    
-    with col3:
-        st.markdown("### 💬 Replied")
-        st.metric("Responses", 0)
-    
-    with col4:
-        st.markdown("### 📅 Interview")
-        st.metric("Scheduled", 0)
+
 
 elif page == "📄 Resume Export":
     # Custom CSS for UI Enhancement
@@ -1243,60 +1222,232 @@ elif page == "📧 Email Center":
     with email_tab1:
         st.subheader("Create Cold Email Draft")
         
-        # Select job to email about
+        # ===== Load Cache Button =====
+        col_load, col_count = st.columns([1, 3])
+        with col_load:
+            if st.button("📦 Load Cached Jobs", help="Load jobs from cloud database (excludes applied jobs)"):
+                try:
+                    from modules.job_scraper import JobScraper
+                    scraper = JobScraper()
+                    cached = scraper.get_all_jobs(limit=100, exclude_applied=True)
+                    if cached:
+                        jobs = []
+                        for job in cached:
+                            jobs.append({
+                                "id": job.id,
+                                "title": job.title,
+                                "company": job.company,
+                                "description": job.description,
+                                "location": job.location,
+                                "salary": job.salary,
+                                "is_remote": job.is_remote,
+                                "job_url": job.job_url,
+                                "posted_date": job.posted_date,
+                            })
+                        st.session_state.jobs = jobs
+                        st.success(f"✅ Loaded {len(jobs)} jobs from database (applied jobs excluded)")
+                    else:
+                        st.warning("No cached jobs found. Search for jobs first!")
+                except Exception as e:
+                    st.error(f"Failed to load: {e}")
+        
+        with col_count:
+            if st.session_state.jobs:
+                st.caption(f"📊 {len(st.session_state.jobs)} jobs available")
+        
+        st.markdown("---")
+        
+        # ===== Daily Send Limit Tracking =====
+        if 'emails_sent_today' not in st.session_state:
+            st.session_state.emails_sent_today = 0
+        daily_limit = 20
+        remaining = daily_limit - st.session_state.emails_sent_today
+        if remaining <= 5:
+            st.warning(f"⚠️ Daily limit: {remaining}/{daily_limit} emails remaining today")
+        
+        # ===== Job Selection =====
         if st.session_state.jobs:
             job_options = {f"{j['title']} @ {j['company']}": j for j in st.session_state.jobs}
             selected_job_name = st.selectbox("Select Job", list(job_options.keys()))
             selected_job = job_options.get(selected_job_name, {})
             
             if selected_job:
-                st.info(f"**{selected_job.get('title')}** at **{selected_job.get('company')}**")
+                # ===== Enhanced Job Info Display =====
+                with st.container(border=True):
+                    st.markdown(f"### {selected_job.get('title', 'N/A')}")
+                    st.markdown(f"**{selected_job.get('company', 'N/A')}**")
+                    
+                    # Metadata row
+                    meta_col1, meta_col2, meta_col3, meta_col4 = st.columns(4)
+                    with meta_col1:
+                        salary = selected_job.get('salary', 'Not specified')
+                        st.caption(f"💰 {salary}")
+                    with meta_col2:
+                        location = selected_job.get('location', 'N/A')
+                        st.caption(f"📍 {location}")
+                    with meta_col3:
+                        # Work mode: Remote / Hybrid / Onsite
+                        if selected_job.get('is_remote'):
+                            work_mode = "🏠 Remote"
+                        else:
+                            # Check if hybrid mentioned in description or location
+                            loc_lower = str(selected_job.get('location', '')).lower()
+                            if 'hybrid' in loc_lower:
+                                work_mode = "🔄 Hybrid"
+                            else:
+                                work_mode = "🏢 Onsite"
+                        st.caption(work_mode)
+                    with meta_col4:
+                        posted = selected_job.get('posted_date', '')
+                        if posted:
+                            posted_str = str(posted)[:10] if posted else 'N/A'
+                        else:
+                            posted_str = 'N/A'
+                        st.caption(f"📅 {posted_str}")
+                    
+                    # JD Expandable Section
+                    with st.expander("📄 View Job Description"):
+                        jd = selected_job.get('description', 'No description available')
+                        if jd:
+                            # Clean HTML if present
+                            from modules.job_scraper import JobScraper
+                            jd_clean = JobScraper().clean_html_tags(jd)
+                            display_jd = jd_clean[:2000] + "..." if len(jd_clean) > 2000 else jd_clean
+                            st.markdown(display_jd)
+                        else:
+                            st.info("No job description available")
+                    
+                    # ===== Apply Link + Applied Checkbox =====
+                    action_col1, action_col2 = st.columns([1, 1])
+                    
+                    with action_col1:
+                        apply_url = selected_job.get('apply_url') or selected_job.get('job_url')
+                        if apply_url:
+                            st.link_button("🔗 Apply Now", apply_url, use_container_width=True)
+                        else:
+                            st.caption("No apply link available")
+                    
+                    with action_col2:
+                        job_id = selected_job.get('id')
+                        if job_id:
+                            # Applied checkbox with callback
+                            applied_key = f"email_applied_{job_id}"
+                            if st.checkbox("✅ Mark as Applied", key=applied_key):
+                                try:
+                                    from modules.job_scraper import JobScraper
+                                    scraper = JobScraper()
+                                    scraper.mark_job_as_applied(int(job_id), applied=True)
+                                    st.success("Marked as applied!")
+                                    # Remove from current list to avoid showing again
+                                    st.session_state.jobs = [j for j in st.session_state.jobs if j.get('id') != job_id]
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Failed: {e}")
                 
-                # HR Contact input
-                hr_email = st.text_input("HR/Recruiter Email", placeholder="recruiter@company.com")
-                hr_name = st.text_input("HR/Recruiter Name", placeholder="Sarah Chen")
+                st.markdown("---")
+                
+                # ===== HR Contact Auto-fill =====
+                hr_email_default = ""
+                hr_name_default = ""
+                hr_contact_found = False
+                
+                try:
+                    from modules.database import SessionLocal, HRContact
+                    db = SessionLocal()
+                    hr_contact = db.query(HRContact).filter(
+                        HRContact.company == selected_job.get('company', '')
+                    ).order_by(HRContact.imported_at.desc()).first()
+                    
+                    if hr_contact:
+                        hr_email_default = hr_contact.email or ""
+                        hr_name_default = hr_contact.name or ""
+                        hr_contact_found = True
+                        
+                        # Check email freshness (warn if > 30 days old)
+                        from datetime import datetime, timedelta
+                        if hr_contact.imported_at:
+                            age_days = (datetime.utcnow() - hr_contact.imported_at).days
+                            if age_days > 30:
+                                st.warning(f"⚠️ Contact data is {age_days} days old - consider verifying")
+                    db.close()
+                except Exception as e:
+                    pass  # Silently fail, user can enter manually
+                
+                if not hr_contact_found:
+                    st.info("ℹ️ No HR contact found for this company. Please enter manually.")
+                
+                # HR Contact inputs
+                hr_email = st.text_input("HR/Recruiter Email", value=hr_email_default, placeholder="recruiter@company.com")
+                hr_name = st.text_input("HR/Recruiter Name", value=hr_name_default, placeholder="Sarah Chen")
+                
+                # ===== Email Validation =====
+                email_valid = False
+                if hr_email:
+                    try:
+                        from email_validator import validate_email, EmailNotValidError
+                        valid = validate_email(hr_email, check_deliverability=False)
+                        st.success(f"✅ Email format valid: {valid.normalized}")
+                        email_valid = True
+                    except EmailNotValidError as e:
+                        st.error(f"❌ Invalid email: {str(e)}")
+                    except ImportError:
+                        email_valid = True  # Skip validation if library not installed
                 
                 col_gen, col_preview = st.columns(2)
                 
                 with col_gen:
-                    if st.button("🤖 Generate Email with AI", type="primary"):
-                        if hr_email:
+                    generate_disabled = remaining <= 0
+                    if st.button("🤖 Generate Email with AI", type="primary", disabled=generate_disabled):
+                        if not email_valid:
+                            st.warning("Please enter a valid HR email address")
+                        elif not hr_email:
+                            st.warning("Please enter HR email address")
+                        else:
                             try:
                                 from modules.ai_agent import ai_agent
                                 email_content = ai_agent.generate_cold_email(
                                     job_data=selected_job,
-                                    resume_summary="EdTech and L&D professional with AI experience",
+                                    hr_name=hr_name or "Hiring Manager",
                                     stage="initial"
                                 )
                                 st.session_state.generated_email = email_content
                                 st.success("Email generated!")
                             except Exception as e:
                                 st.error(f"Generation failed: {e}")
-                        else:
-                            st.warning("Please enter HR email address")
                 
                 # Display generated email
                 if 'generated_email' in st.session_state:
                     email = st.session_state.generated_email
-                    st.text_area("Subject", value=email.get('subject', ''), key="email_subject", height=50)
-                    st.text_area("Body", value=email.get('body', ''), key="email_body", height=300)
+                    if isinstance(email, dict):
+                        st.text_area("Subject", value=email.get('subject', ''), key="email_subject", height=50)
+                        st.text_area("Body", value=email.get('body', ''), key="email_body", height=300)
+                    else:
+                        # If email is a string
+                        st.text_area("Email Content", value=str(email), key="email_body", height=300)
                     
-                    if st.button("📤 Create Gmail Draft"):
-                        try:
-                            from modules.gmail_service import gmail_service
-                            draft = gmail_service.create_draft(
-                                to=hr_email,
-                                subject=st.session_state.email_subject,
-                                body=st.session_state.email_body
-                            )
-                            if draft:
-                                st.success("✅ Draft created in Gmail!")
-                            else:
-                                st.error("Failed to create draft. Check Gmail connection.")
-                        except Exception as e:
-                            st.error(f"Gmail error: {e}")
+                    create_disabled = remaining <= 0
+                    if st.button("📤 Create Gmail Draft", disabled=create_disabled):
+                        if remaining <= 0:
+                            st.error("❌ Daily email limit reached (20/day)")
+                        else:
+                            try:
+                                from modules.gmail_service import gmail_service
+                                subject = st.session_state.get('email_subject', f"Interest in {selected_job.get('title')}")
+                                body = st.session_state.get('email_body', '')
+                                draft = gmail_service.create_draft(
+                                    to=hr_email,
+                                    subject=subject,
+                                    body=body
+                                )
+                                if draft:
+                                    st.session_state.emails_sent_today += 1
+                                    st.success(f"✅ Draft created in Gmail! ({remaining-1} remaining today)")
+                                else:
+                                    st.error("Failed to create draft. Check Gmail connection.")
+                            except Exception as e:
+                                st.error(f"Gmail error: {e}")
         else:
-            st.info("Search for jobs first to generate cold emails")
+            st.info("📦 Click 'Load Cached Jobs' or search for jobs first to generate cold emails")
     
     with email_tab2:
         st.subheader("Follow-up Queue")
@@ -1343,6 +1494,49 @@ elif page == "📧 Email Center":
 elif page == "📊 Dashboard":
     st.markdown('<h1 class="main-header">Dashboard 📊</h1>', unsafe_allow_html=True)
     st.markdown("Track your job applications")
+    
+    # ===== Web Applied Jobs Management (Manual) =====
+    with st.expander("📚 Web Applied History (Manually Marked)", expanded=True):
+        try:
+            from modules.database import SessionLocal, Application, Job
+            db = SessionLocal()
+            
+            # Get manually applied jobs
+            web_apps = db.query(Application).join(Job).filter(
+                Application.status == 'applied'
+            ).order_by(Application.updated_at.desc()).limit(50).all()
+            
+            if web_apps:
+                # Create a list for dataframe-like display
+                for app in web_apps:
+                    cols = st.columns([2, 3, 2, 2, 1])
+                    with cols[0]:
+                        st.write(app.updated_at.strftime("%Y-%m-%d %H:%M"))
+                    with cols[1]:
+                        st.write(f"**{app.job.title}**")
+                    with cols[2]:
+                        st.write(app.job.company)
+                    with cols[3]:
+                        st.caption(app.job.location)
+                    with cols[4]:
+                        if st.button("↩️ Undo", key=f"dash_unapply_{app.job.id}", help="Unmark as applied"):
+                            try:
+                                from modules.job_scraper import JobScraper
+                                scraper = JobScraper()
+                                scraper.mark_job_as_applied(app.job.id, applied=False)
+                                st.toast(f"Unmarked: {app.job.title}")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(str(e))
+                    st.divider()
+            else:
+                st.info("No manually applied jobs yet. Use the 'Email Center' to mark jobs as applied.")
+            
+            db.close()
+        except Exception as e:
+            st.error(f"Error loading history: {e}")
+            
+    st.markdown("### Kanban Board")
     
     # Kanban columns
     col1, col2, col3, col4 = st.columns(4)

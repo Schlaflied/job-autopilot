@@ -44,6 +44,7 @@
 
 ### 📊 **Dashboard** ✨ NEW
 - 📈 **Kanban Board**: Visual pipeline (To Apply → Sent → Replied → Interview)
+- 📚 **Applied History**: Manage manually marked applications (Undo/View History)
 - 🎯 **One-Click Apply**: Move jobs through stages
 - 📧 **Status Tracking**: Real-time application status
 
