@@ -1,121 +1,227 @@
-# Apollo Automation Plan: "Job Autopilot Helper" System
+# Apollo Automation Plan v2.0
 
-## 1. 核心目标
-**Objective**: Build a robust, cost-effective (zero-token cost), and open-source friendly system to automate email scraping from Apollo.io.
+## 0. 术语澄清 (Terminology)
 
-**Constraints**:
-1.  **Must use local browser session**: Leverage user's logged-in state and free view credits.
-2.  **Must work with Docker backend**: Bridge the gap between containerized Python/DB and host OS browser.
-3.  **Minimize AI Cost**: Use rule-based JS logic instead of vision-based AI agents.
+> **这不是"AI Agent"，而是"规则自动化 + 定向 AI 辅助"。**
 
----
+| 组件 | 类型 | 说明 |
+|------|------|------|
+| Chrome Extension | **纯自动化** | JS 脚本操控 DOM，无 AI 参与 |
+| 职位数据流转 | **规则逻辑** | 从 Loaded Jobs 读取公司信息，自动构建 Apollo 搜索 URL |
+| Email 生成 | **AI 辅助** | GPT-4o-mini 根据 JD + Resume 生成邮件内容 |
+| 公司消歧 (Fallback) | **AI 辅助** | 仅在重名时启用，分析 JD 选择正确公司 |
 
-## 2. 关键决策点 (Addressing User Concerns)
-
-### **A. 邮件生成策略 (Precision Cold Email)**
-**警示**: 抓到邮箱只是第一步，发送高质量的邮件才是关键。AI 绝不能"信口开河"。
-**要求**:
-1.  **Strict Context**: 必须使用 **针对该职位优化过的简历 (Tailored Resume)** 作为输入。
-2.  **ATS Acknowledgement**: 针对大公司，邮件必须明确提到 **"I have already applied via your portal (ID: xxx)"**，将 Cold Email 定位为 "Follow-up" 而非 "Bypass"。
-3.  **No Hallucination**: 严禁 AI 编造不存在的经历。
-
-### **B. 解决 "找错 HR" (Department Targeting)**
-**痛点**: 大公司可能有几十个 HR，负责不同部门。
-**策略**:
-1.  **AI 推理部门**: 在搜索前，先用 AI 分析 JD，提取部门关键词 (e.g., "Engineering", "Sales", "Marketing")。
-2.  **精准搜索**: Apollo 搜索时，Job Title 不只搜 "HR"，而是搜 `"{Department} Recruiter"` (例如 "Technical Recruiter", "Sales Recruiter")。
-3.  **Hiring Manager 优先**: 对于中小公司 (<500人)，优先搜 "Head of {Department}" 或 "VP of {Department}"，直接联系业务老板比联系 HR 有效。
-
-### **C. 放弃 "LinkedIn Overlay" 模式，改用 "Direct Apollo Website" 模式**
-
-你提到的痛点是真实的：在 LinkedIn 上用 Apollo 插件非常麻烦（需下滑、点进 Profile、点插件浮窗、再点 Reveal）。路径太长，极易失败。
-
-**新策略**：我们的插件**不操作 LinkedIn，直接操作 Apollo 官网 (app.apollo.io)**。
-*   **流程**：插件直接打开 `https://app.apollo.io/#/people`。
-*   **优势**：Apollo 官网的搜索功能极其强大。我们可以直接把公司名填入 "Organization" 筛选器，把 "HR" 填入 "Job Title" 筛选器。
-*   **结果**：直接得到一个清洗好的 HR 列表，根本不需要去 LinkedIn 上一个个翻人。这是一个**降维打击**的方案。
-
-### **B. 解决 "公司重名" (Entity Disambiguation)**
-
-重名是抓取的经典难题（比如搜 "Delta"，出来 "Delta Airlines", "Delta Faucet", "Delta Dental"...）。
-
-**解决方案：Domain (域名) 匹配法**
-*   **Step 1**: Job Scraper 爬取职位时，通常能拿到职位对应的 **Apply URL** 或者公司官网 **Domain** (例如 `openai.com`)。
-*   **Step 2**: 在 Apollo 搜索时，**不搜公司名，只搜 Domain**。
-    *   Apollo 支持 `q_organization_domains[]=openai.com` 参数。
-*   **优势**: 域名是全球唯一的，绝对不会重名！
-*   **Fallback**: 如果实在没有域名，才搜公司名，并让插件提取搜索结果的第一条 Company Industry/Location 进行简单的模糊比对（这里可以用极其轻量的规则或 GPT-4o-mini 辅助判断，成本可控）。
+**结论**: Token 消耗仅发生在 Email 生成和消歧环节，其余全免费。
 
 ---
 
-## 3. 架构设计 (Client-Server Model)
+## 1. 完整数据流 (End-to-End Workflow)
 
-### **Backend (Server): Job Autopilot Container**
-- **Role**: Command Center (Brain)
-- **Responsibilities**:
-  - Identify companies/jobs lacking HR contact info.
-  - Maintain a `Task Queue` (e.g., "Find HR for openai.com").
-  - Expose REST API endpoints for the extension.
-  - Store retrieved data into PostgreSQL.
-
-### **Frontend (Client): Chrome Extension**
-- **Role**: Field Agent (Hands)
-- **Responsibilities**:
-  - Run in user's local Chrome browser (User-Hosted).
-  - Poll backend for tasks.
-  - **Action**: Open `app.apollo.io` -> Filter by Domain -> Reveal Email.
-  - Report success/failure back to backend.
-  - **Compliance**: Respects user's session and rate limits to simulate human behavior.
-
----
-
-## 4. 详细工作流 (Revised Workflow)
-
-1.  **Task Generation**:
-    - Backend detects a job: "Software Engineer at OpenAI" (Domain: `openai.com` extracted from apply link).
-    - Adds task to Queue: `{type: "domain_search", domain: "openai.com", role: "HR"}`.
-
-2.  **Execution (Direct Apollo Search)**:
-    - Extension opens background tab: `https://app.apollo.io/#/people?personTitles[]=HR&organizationDomain[]=openai.com`
-    - **No Scrolling Needed**: The result list directly shows HR people at that explicit domain.
-    - **Action**:
-        - Click 1st person's "Access Email".
-        - Scrape Email.
-        - Send back to Docker.
-
-3.  **Handling "No Domain"**:
-    - If scraping failed to get domain, we search by Company Name.
-    - Extension scrapes the top 3 company results from Apollo.
-    - Returns them to Backend: "I found Delta (Airline), Delta (Faucet)... which one?"
-    - Backend (AI Agent) decides based on Job Description context ("This job is about faucets...") and re-queues a precise Domain Search task.
-
----
-
-## 5. 可行性分析 (Feasibility Check)
-
-| 挑战 | 解决方案 | 风险等级 |
-|------|----------|----------|
-| **Apollo Quota (免费额度)** | **关键发现**: 免费版不仅有 Export Credits (导出额度，极少)，更有 **View/Email Credits** (查看邮箱额度)。<br>- **Gmail 用户**: 约 **100 credits/月**。<br>- **企业邮箱用户**: 也是有限制的 (Fair Usage Policy)。<br>**对策**: 插件只 "View" 不 "Export" (CSV导出)，且在 UI 显示剩余额度警告。 | Medium |
-| **公司重名 (Collision)** | **策略升级**: <br>1. **Domain 优先**: 从职位链接提取 `openai.com` 直接搜。<br>2. **清洗域名**: 自动去除 `careers.`, `jobs.` 等子域名。<br>3. **Fallback**: 若无域名，搜公司名 + 模糊匹配 Industry/Location。 | Low |
-| **Apollo 反爬 (Cloudflare)** | 使用用户真实浏览器 + Chrome Extension，拥有最高信任度。 | Low |
-| **DOM 结构变动** | 页面改版会导致脚本失效。对策: 开源项目维护选择器配置。 | Medium |
-| **法律/合规性** | **User-Hosted**: 代码运行在用户本地，用户对自己账号负责。<br>**Rate Limiting**: 严格限制请求频率，模拟真人，避免滥用。 | Medium |
-| **成本** | **$0**. 消耗的是 Apollo Free View Credits。 | Zero |
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 1: Job Discovery (用户操作)                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  User clicks "🔎 Search Jobs" or "📂 Load Cached Jobs"                       │
+│       ↓                                                                      │
+│  Jobs loaded into st.session_state & saved to PostgreSQL (Job table)        │
+│       ↓                                                                      │
+│  Each Job contains: title, company, domain (from apply_url), JD, salary...  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 2: HR Contact Discovery (自动化)                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Backend scans Jobs table → finds jobs missing HR contact                    │
+│       ↓                                                                      │
+│  Creates Task: {job_id: 123, domain: "openai.com", dept: "Engineering"}     │
+│       ↓                                                                      │
+│  Chrome Extension polls /api/task/next → gets task                           │
+│       ↓                                                                      │
+│  Extension opens Apollo: https://app.apollo.io/#/people?...                  │
+│       ↓                                                                      │
+│  Clicks "Access Email" → scrapes email → POSTs to /api/task/complete         │
+│       ↓                                                                      │
+│  Backend saves to HRContact table (linked to Job via company/domain)         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 3: Cold Email Generation (AI 辅助)                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  User opens Email Center → selects a Job from dropdown                       │
+│       ↓                                                                      │
+│  System auto-fills HR Email from HRContact table                             │
+│       ↓                                                                      │
+│  User clicks "✉️ Generate Email"                                             │
+│       ↓                                                                      │
+│  AI (GPT-4o-mini) generates email:                                           │
+│    - INPUT: JD (pain points) + Tailored Resume (user's strengths)            │
+│    - OUTPUT: Subject + Body (with custom P.S. from Settings)                 │
+│       ↓                                                                      │
+│  User reviews → clicks "Create Gmail Draft" → Done!                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 6. 开发计划 (Revised Implementation Steps)
+## 2. 关键逻辑：从 Loaded Jobs 触发 Apollo 搜索
 
-### Phase 1: Backend API Setup (2 Days)
-- [ ] Create `HRTaskQueue` in database.
-- [ ] Implement `app.py` (Flask) endpoints.
-- [ ] **Critical**: Enhance `JobScraper` to extract Company Domain (e.g., from email domain or apply link) to solve the duplicate name issue upstream.
+**用户担忧**: Apollo Agent 应该基于已加载的职位去找 HR，而不是随机搜索。
 
-### Phase 2: Extension Core (3 Days)
-- [ ] Create `manifest.json` v3.
-- [ ] Implement `content_script.js` for `app.apollo.io`.
-- [ ] Logic to handle credit limits (stop when limit reached).
+**解决方案**:
+1. **Job 表增加字段**: `hr_contact_status` (enum: `pending`, `found`, `not_found`)
+2. **后台任务生成逻辑**:
+   ```python
+   # 只为 hr_contact_status='pending' 的职位创建任务
+   jobs_needing_hr = db.query(Job).filter(
+       Job.hr_contact_status == 'pending',
+       Job.applied == False  # 已申请的不需要再找
+   ).limit(10).all()
+   
+   for job in jobs_needing_hr:
+       create_apollo_task(job.id, job.company_domain, job.department)
+   ```
+3. **Chrome Extension 只处理后台分配的任务**，绝不自行搜索。
 
-### Phase 3: Integration & Testing (2 Days)
-- [ ] End-to-end test with Domain-based search.
-- [ ] Fallback test with Name-based search.
+---
+
+## 2.5 JD 驱动的精准 HR 搜索 (JD-Driven Search) 🔴 关键
+
+**用户担忧**: 招 Software Engineer 的职位，不能把邮箱发给 Marketing HR。
+
+**解决方案**:
+1. **从 Apify Job 数据提取**: `company_domain` (from apply_url) + `job_title`
+2. **AI 分析 JD 推断部门** (GPT-4o-mini, ~$0.0001/次):
+   - Prompt: "What department is this role in? Reply ONE word."
+   - Output: Engineering / Marketing / Sales / HR / Design / Finance
+3. **构建精准 Apollo 搜索**:
+   - `organizationDomain=openai.com` (公司唯一标识)
+   - `personTitles=Technical Recruiter` (部门对应)
+
+**部门 → Recruiter 映射**:
+| JD 部门 | 搜索 Title |
+|---------|------------|
+| Engineering | Technical Recruiter |
+| Marketing | Marketing Recruiter |
+| Sales | Sales Recruiter |
+| Design | Design Recruiter |
+| General/Unknown | Recruiter, Talent Acquisition |
+
+**Fallback 逻辑 (小公司无专职 Recruiter)**:
+1. 先搜 `Technical Recruiter` → 无结果
+2. 再搜 `Recruiter` 或 `HR Manager` → 抓取通用 HR
+
+**Email Subject 要求**:
+> [!IMPORTANT]
+> 无论发给大公司还是小公司，Subject 必须包含具体职位名称。
+> 例如: `Regarding Senior Software Engineer - [Your Name]`
+
+---
+
+## 3. 修正后的开发计划
+
+### Phase 1: 数据模型强化 (1 Day)
+- [ ] `Job` 表增加 `company_domain` 和 `hr_contact_status` 字段
+- [ ] `HRContact` 表增加 `job_id` 外键 (关联具体职位)
+- [ ] `JobScraper` 修改: 从 `apply_url` 提取 domain
+
+### Phase 2: Backend API (1.5 Days)
+- [ ] `GET /api/task/next` - 返回待处理的 Apollo 任务
+- [ ] `POST /api/task/complete` - 接收抓取结果并更新数据库
+- [ ] 任务生成逻辑 (扫描 Job 表)
+
+### Phase 3: Chrome Extension (2 Days)
+- [ ] `manifest.json` v3
+- [ ] `background.js` - 轮询 + 任务调度
+- [ ] `content_script.js` - Apollo DOM 操作
+
+### Phase 4: Email Center 集成 (1 Day)
+- [ ] 选择 Job 后自动查询 HRContact
+- [ ] 无联系人时显示 "⏳ Waiting for Apollo scrape..."
+- [ ] 手动触发按钮: "🔍 Find HR Contact Now"
+
+---
+
+## 4. 用户确认点 (Checklist)
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 从 Loaded Jobs 触发搜索 | ✅ 已确认 | 后台扫描 Job 表生成任务 |
+| AI vs 自动化边界 | ✅ 已澄清 | 仅 Email 生成和消歧用 AI |
+| HRContact 和 Job 关联 | ✅ 已确认 | **一对多**: 可能抓到多个 HR/HM |
+| HR vs HM 优先级 | ✅ 已确认 | **HR 优先**。发 HM 由用户决定 (Settings 开关) |
+| 手动触发 Apollo 搜索 | ✅ 已确认 | "🔍 Find HR Now" 支持两种模式 |
+| Chrome Extension 安装指南 | ⏳ 延后 | 待功能完善后补充到 README |
+
+---
+
+## 5. 用户体验选项 (UX Choices)
+
+### A. HM Follow-up 控制
+用户可以在 **Settings** 页面选择：
+- [ ] 5 天无回复后自动发送 HM (Auto)
+- [x] 5 天无回复后提醒我，手动决定 (Manual) ← 默认
+
+### B. Extension 执行模式
+用户可以在 **Settings** 或 Extension Popup 中选择：
+- **Visible Mode**: 打开新 Tab，用户可以看到 Apollo 操作过程
+- **Background Mode**: 静默执行，不打扰用户 (高级用户)
+
+### C. 搜索失败处理
+| 场景 | UI 显示 |
+|------|---------|
+| 正在搜索 | ⏳ Searching... |
+| 找到 HR | ✅ hr@company.com |
+| 搜索完成但无结果 | ❌ Email not found (请手动输入) |
+
+---
+
+## 6. 关键问题：JS 脚本如何把 Email 填入 Email Center？
+
+**核心原理：Extension 不直接操作 Streamlit UI，而是通过数据库中转。**
+
+```
+┌──────────────────┐      HTTP POST       ┌──────────────────┐
+│ Chrome Extension │  ───────────────────▶ │ Flask API        │
+│ (content_script) │  {email, name, ...}  │ /api/task/done   │
+└──────────────────┘                       └────────┬─────────┘
+                                                    │
+                                                    ▼ INSERT
+                                           ┌──────────────────┐
+                                           │ PostgreSQL       │
+                                           │ (HRContact 表)   │
+                                           └────────┬─────────┘
+                                                    │
+                                                    ▼ SELECT
+┌──────────────────┐                       ┌──────────────────┐
+│ Email Center UI  │ ◀───────────────────── │ Streamlit App    │
+│ (自动填充邮箱)    │   读取 HRContact      │ (streamlit_app)  │
+└──────────────────┘                       └──────────────────┘
+```
+
+**流程说明：**
+1. Extension 抓到邮箱后，发送 HTTP 请求到 Docker 里的 Flask API。
+2. Flask 把数据存入 PostgreSQL 的 `HRContact` 表。
+3. 用户在 Email Center 选择一个 Job 时，Streamlit 查询 `HRContact` 表。
+4. 如果找到对应公司的 HR 邮箱，自动填入输入框；否则显示 "⏳ Waiting..."。
+
+**结论：Extension 和 Streamlit 完全解耦，通过数据库通信。**
+
+---
+
+## 6. 合规性再强调 (Compliance)
+
+> [!CAUTION]
+> 用户担心"玩火"和"被封号"。
+
+**风险控制措施：**
+
+| 措施 | 说明 |
+|------|------|
+| **User-Hosted** | 代码运行在用户本地浏览器，非中心化爬取 |
+| **Rate Limiting** | 每分钟最多 1 次搜索，模拟真人操作 |
+| **No Credential Sharing** | 用户自己登录 Apollo，项目不存储任何账号密码 |
+| **Explicit Consent** | Extension 有开关让用户明确启用/禁用 |
+| **Open Source** | AGPL-3.0 协议，代码透明，用户自愿使用 |
+
+**法律定位**：这是一个**浏览器辅助工具**，类似于 Password Manager 或 Ad Blocker。用户对自己的账号行为负责。
+
