@@ -1,30 +1,7 @@
 // Job Autopilot Helper - Content Script
-// DOM manipulation logic for Apollo.io
+// Semi-automatic mode: User clicks to reveal emails, script extracts them
 
 console.log('[Apollo Helper] Content script loaded on Apollo.io');
-
-// ============================================================
-// DOM Selectors (Update if Apollo UI changes)
-// ============================================================
-
-const SELECTORS = {
-    // Contact list item
-    contactRow: '[data-cy="people-row"]',
-    contactName: '[data-cy="name-cell"]',
-    contactTitle: '[data-cy="title-cell"]',
-    contactCompany: '[data-cy="account-name"]',
-
-    // Email access button
-    accessEmailBtn: '[data-cy="access-button"]',
-    emailDisplayed: '[data-cy="email-value"]',
-
-    // Results info
-    resultsCount: '[data-cy="total-count"]',
-    noResults: '.zp-people-none',
-
-    // Loading states
-    loadingSpinner: '.zp-spinner'
-};
 
 // ============================================================
 // Helper Functions
@@ -34,137 +11,220 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function waitForElement(selector, timeout = 10000) {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-        const element = document.querySelector(selector);
-        if (element) return element;
-        await sleep(500);
-    }
-
-    return null;
-}
-
-async function waitForLoading() {
-    // Wait for any loading spinners to disappear
-    let spinner = document.querySelector(SELECTORS.loadingSpinner);
-    while (spinner) {
-        await sleep(500);
-        spinner = document.querySelector(SELECTORS.loadingSpinner);
-    }
-    await sleep(1000); // Extra buffer
-}
-
 // ============================================================
-// Email Scraping Logic
+// Email Extraction (reads already-visible emails)
 // ============================================================
 
-async function scrapeContacts() {
-    console.log('[Apollo Helper] Starting contact scrape...');
-
-    await waitForLoading();
-
-    // Check for no results
-    const noResults = document.querySelector(SELECTORS.noResults);
-    if (noResults) {
-        console.log('[Apollo Helper] No results found');
-        return [];
-    }
-
-    const rows = document.querySelectorAll(SELECTORS.contactRow);
-    console.log(`[Apollo Helper] Found ${rows.length} contact rows`);
-
+function extractVisibleEmails() {
     const contacts = [];
+    const rows = document.querySelectorAll('[role="row"]');
 
-    // Only process first 3 contacts to save credits
-    const maxContacts = Math.min(rows.length, 3);
+    console.log(`[Apollo Helper] Scanning ${rows.length} rows for visible emails...`);
 
-    for (let i = 0; i < maxContacts; i++) {
+    for (let i = 1; i < rows.length && contacts.length < 10; i++) {
         const row = rows[i];
 
         try {
-            // Extract basic info
-            const nameEl = row.querySelector(SELECTORS.contactName);
-            const titleEl = row.querySelector(SELECTORS.contactTitle);
-            const companyEl = row.querySelector(SELECTORS.contactCompany);
+            // Look for mailto links (emails that are already revealed)
+            const emailEl = row.querySelector('a[href^="mailto:"]');
 
-            const contact = {
-                name: nameEl ? nameEl.textContent.trim() : '',
-                title: titleEl ? titleEl.textContent.trim() : '',
-                company: companyEl ? companyEl.textContent.trim() : '',
-                email: null
-            };
+            if (emailEl) {
+                const nameEl = row.querySelector('a[href*="#/people/"]');
+                const companyEl = row.querySelector('a[href*="#/organizations/"]');
 
-            // Click "Access Email" button
-            const accessBtn = row.querySelector(SELECTORS.accessEmailBtn);
-            if (accessBtn) {
-                accessBtn.click();
-                console.log(`[Apollo Helper] Clicked access email for: ${contact.name}`);
+                // Extract title from row text
+                let title = '';
+                const rowText = row.textContent;
+                const titleMatch = rowText.match(/((?:senior\s+)?(?:technical\s+)?recruiter|talent\s+acquisition(?:\s+\w+)?|hr\s+manager)/i);
+                if (titleMatch) {
+                    title = titleMatch[1];
+                }
 
-                // Wait for email to load
-                await sleep(2000);
+                const contact = {
+                    name: nameEl ? nameEl.textContent.trim() : 'Unknown',
+                    email: emailEl.href.replace('mailto:', ''),
+                    title: title,
+                    company: companyEl ? companyEl.textContent.trim() : ''
+                };
 
-                // Try to find the email display
-                const emailEl = row.querySelector(SELECTORS.emailDisplayed);
-                if (emailEl) {
-                    contact.email = emailEl.textContent.trim();
-                    console.log(`[Apollo Helper] Email found: ${contact.email}`);
+                // Validate email
+                if (contact.email && contact.email.includes('@') && contact.email.includes('.')) {
+                    contacts.push(contact);
+                    console.log(`[Apollo Helper] ✅ Found: ${contact.name} <${contact.email}>`);
                 }
             }
-
-            if (contact.email) {
-                contacts.push(contact);
-            }
-
-            // Rate limiting between contacts
-            await sleep(1500);
-
-        } catch (error) {
-            console.error('[Apollo Helper] Error scraping contact:', error);
+        } catch (e) {
+            console.error('[Apollo Helper] Error extracting from row:', e);
         }
     }
 
-    console.log(`[Apollo Helper] Scraped ${contacts.length} contacts with emails`);
     return contacts;
 }
 
 // ============================================================
-// Auto-run on page load (when search results are ready)
+// Send results to background
 // ============================================================
 
-async function autoScrape() {
-    // Wait for page to fully load
-    await sleep(3000);
+function sendResultsToBackground(contacts) {
+    try {
+        chrome.runtime.sendMessage({
+            type: 'CONTACTS_SCRAPED',
+            contacts: contacts
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.log('[Apollo Helper] Note: Background SW may be idle. Results will be saved on next poll.');
+                // Store locally for later
+                localStorage.setItem('apolloHelper_pendingContacts', JSON.stringify(contacts));
+            } else {
+                console.log('[Apollo Helper] Results sent to background:', response);
+                localStorage.removeItem('apolloHelper_pendingContacts');
+            }
+        });
+    } catch (e) {
+        console.log('[Apollo Helper] Could not send to background:', e.message);
+        localStorage.setItem('apolloHelper_pendingContacts', JSON.stringify(contacts));
+    }
+}
 
-    // Check if we're on a search results page
+// ============================================================
+// Main Scan Function
+// ============================================================
+
+async function scanForEmails() {
+    console.log('[Apollo Helper] Scanning for visible emails...');
+
+    const contacts = extractVisibleEmails();
+
+    if (contacts.length > 0) {
+        console.log(`[Apollo Helper] Found ${contacts.length} contacts with emails!`);
+        sendResultsToBackground(contacts);
+
+        // Show user notification
+        showNotification(`✅ Found ${contacts.length} HR contacts! Data sent to Job Autopilot.`);
+    } else {
+        console.log('[Apollo Helper] No visible emails found. Click "Access email" buttons to reveal emails, then click the extension button to scan.');
+    }
+
+    return contacts;
+}
+
+// ============================================================
+// UI Notification
+// ============================================================
+
+function showNotification(message) {
+    const existing = document.getElementById('apollo-helper-notification');
+    if (existing) existing.remove();
+
+    const notification = document.createElement('div');
+    notification.id = 'apollo-helper-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 999999;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.textContent = message;
+
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => notification.remove(), 5000);
+}
+
+// ============================================================
+// Auto-scan on page load
+// ============================================================
+
+async function autoScan() {
+    await sleep(5000);
+
     const isSearchPage = window.location.hash.includes('#/people');
     if (!isSearchPage) {
-        console.log('[Apollo Helper] Not on search page, waiting...');
+        console.log('[Apollo Helper] Not on search page.');
         return;
     }
 
-    console.log('[Apollo Helper] On search page, starting auto-scrape...');
+    console.log('[Apollo Helper] On Apollo search page. Tip: Click "Access email" to reveal emails, then I will scan them automatically.');
 
-    const contacts = await scrapeContacts();
+    // Initial scan
+    await scanForEmails();
 
-    // Send results to background script
-    chrome.runtime.sendMessage({
-        type: 'CONTACTS_SCRAPED',
-        contacts: contacts
-    }, (response) => {
-        console.log('[Apollo Helper] Scrape results sent to background:', response);
-    });
+    // Set up observer to detect when emails are revealed
+    setupMutationObserver();
 }
 
-// Start auto-scrape after page loads
-setTimeout(autoScrape, 3000);
+// ============================================================
+// Watch for DOM changes (when user clicks "Access email")
+// ============================================================
+
+let scanTimeout = null;
+
+function setupMutationObserver() {
+    const observer = new MutationObserver((mutations) => {
+        // Check if any mailto links were added
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length > 0) {
+                const hasNewEmail = Array.from(mutation.addedNodes).some(node => {
+                    if (node.nodeType === 1) {
+                        return node.querySelector?.('a[href^="mailto:"]') ||
+                            (node.tagName === 'A' && node.href?.startsWith('mailto:'));
+                    }
+                    return false;
+                });
+
+                if (hasNewEmail) {
+                    // Debounce the scan
+                    if (scanTimeout) clearTimeout(scanTimeout);
+                    scanTimeout = setTimeout(() => {
+                        console.log('[Apollo Helper] New email detected! Auto-scanning...');
+                        scanForEmails();
+                    }, 1000);
+                }
+            }
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    console.log('[Apollo Helper] Watching for new emails...');
+}
+
+// ============================================================
+// Start
+// ============================================================
+
+console.log('[Apollo Helper] Ready. Auto-scanning in 5 seconds...');
+setTimeout(autoScan, 5000);
 
 // Listen for manual trigger from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'TRIGGER_SCRAPE') {
-        autoScrape().then(() => {
-            sendResponse({ status: 'complete' });
+        console.log('[Apollo Helper] Manual scan triggered');
+        scanForEmails().then(contacts => {
+            sendResponse({ status: 'complete', count: contacts.length });
         });
         return true;
     }

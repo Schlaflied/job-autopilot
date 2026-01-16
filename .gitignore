@@ -198,9 +198,205 @@ Thumbs.db
 *.temp
 
 # Secrets (just in case)
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Credentials and secrets
+data/credentials/*.json
+data/credentials/gmail_*.json
+!data/credentials/README.md
+*.pem
+*.key
+*.crt
+
+# Generated files
+data/resumes/*.pdf
+data/resumes/*.docx
+data/emails/*.html
+data/emails/*.txt
+
+# Logs
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+*.pyc
+__pycache__/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Session data
+sessions/
+*.session
+
+# n8n workflow files (too large for GitHub)
+*.json
+!.env.example
+!package.json
+!data/templates/*.json
+
+# Personal documents
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# ============================================================
+# Project-specific
+Yuting Sun Master Resume.md
+RESUME_EXPORT_IMPLEMENTATION.md
+IMPLEMENTATION_PLAN.md
+# ============================================================
+
+# Data files
+data/resumes/*.pdf
+data/resumes/*.docx
+data/credentials/*.json
+data/*.db
+
+# Logs
+logs/*.log
+
+# Redis dump
+dump.rdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Secrets (just in case)
 *secret*
 *private*
 gmail_credentials.json
 gmail_token.json
 
 logs/
+.playwright_data/

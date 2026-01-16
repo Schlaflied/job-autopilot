@@ -26,7 +26,7 @@ class JobScraper:
             raise ValueError("APIFY_API_TOKEN is required")
         
         self.client = ApifyClient(self.api_token)
-        scraper_logger.info("Apify client initialized")
+        # scraper_logger.info("Apify client initialized")
     
     def scrape_jobs(
         self,
@@ -307,6 +307,22 @@ class JobScraper:
             # Validate domain has at least one dot
             if '.' not in domain:
                 return None
+            
+            # Filter out ATS/HR systems and job aggregators (useless for Apollo search)
+            ats_and_aggregator_domains = [
+                # Job aggregators
+                'indeed.com', 'ca.indeed.com', 'linkedin.com', 'glassdoor.com', 'ziprecruiter.com',
+                # ATS systems
+                'rippling.com', 'ats.rippling.com', 'greenhouse.io', 'lever.co', 'workday.com',
+                'icims.com', 'smartrecruiters.com', 'bamboohr.com', 'jobvite.com',
+                'ultipro.com', 'taleo.net', 'successfactors.com', 'myworkdayjobs.com'
+            ]
+            
+            # Check if domain contains any of the blocked patterns
+            for blocked in ats_and_aggregator_domains:
+                if blocked in domain:
+                    scraper_logger.debug(f"Skipping ATS/aggregator domain: {domain}")
+                    return None
             
             scraper_logger.debug(f"Extracted domain: {domain} from {url}")
             return domain

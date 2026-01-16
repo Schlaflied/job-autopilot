@@ -58,6 +58,12 @@
 - ⏰ **Auto Follow-up** (5 days after initial email, max 1 per job)
 - 🤝 **AI Disclosure** (transparent about AI-assisted outreach)
 
+### 🕵️‍♂️ **Apollo HR Automation** ✨ NEW
+- 🤖 **Playwright-Based Scout**: Robust, headless browser agent to find HR contacts on Apollo.io.
+- 🎯 **On-Demand Search**: Trigger HR lookup for specific jobs directly from the dashboard.
+- 💾 **Smart Caching**: Results are saved to database to avoid redundant searches.
+- ⚡ **Anti-Blocking**: Uses persistent browser context and human-like behavior to navigate Apollo safely.
+
 ### 🎨 **Modern UI**
 - 🖥️ **Streamlit Web Interface** (clean, responsive design)
 - 🌓 **Dark Mode Support**
@@ -82,7 +88,7 @@
 | **Database** | Neon PostgreSQL (cloud) |
 | **Cache** | Redis (optional) |
 | **Job Scraping** | Apify (Indeed Actor) |
-| **HR Contacts** | Selenium + undetected-chromedriver (LinkedIn) |
+| **HR Contacts** | Microsoft Playwright (Python) |
 | **Email** | Gmail API (OAuth 2.0) |
 | **Resume** | python-docx, ReportLab (PDF), docx2txt, pdfminer.six |
 | **ORM** | SQLAlchemy 2.0 |

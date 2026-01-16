@@ -4,6 +4,10 @@
 import streamlit as st
 import sys
 import os
+import subprocess
+import threading
+import time
+from datetime import datetime
 
 # Add modules to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -76,11 +80,139 @@ def update_application_status(job_id, key):
         except ValueError:
             st.error(f"Invalid job ID: {job_id}")
 
+# Global queue for thread communication (must be thread-safe)
+# We store it in session state to persist across reruns, 
+# but pass it as a regular object to the thread
+import queue
+
+def run_apollo_thread(job_id=None):
+    """Run Apollo scraper and write output to a log file"""
+    log_file_path = f"logs/apollo_run_{job_id if job_id else 'batch'}.log"
+    # Ensure logs directory exists
+    os.makedirs("logs", exist_ok=True)
+    
+    with open(log_file_path, "w", encoding='utf-8') as f:
+        f.write(f"🚀 Starting Apollo Automation for Job ID: {job_id}...\n")
+        f.flush()
+        
+        try:
+            cmd = [sys.executable, 'scripts/run_apollo_scraper.py', '--limit', '5']
+            if job_id:
+                 cmd.extend(['--job-id', str(job_id)])
+            
+            # Start subprocess with UTF-8 encoding environment
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+            
+            creation_flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                creationflags=creation_flags,
+                encoding='utf-8',
+                errors='replace',
+                env=env
+            )
+            
+            # Stream output to file
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    f.write(line)
+                    f.flush()
+            
+            process.stdout.close()
+            return_code = process.wait()
+            
+            if return_code == 0:
+                f.write("\n___FINISHED_SUCCESS___\n")
+            else:
+                f.write(f"\n❌ Failed with code {return_code}\n")
+                f.write("\n___FINISHED_ERROR___\n")
+                
+        except Exception as e:
+            f.write(f"\n❌ Execution Error: {str(e)}\n")
+            f.write("\n___FINISHED_ERROR___\n")
+
+def start_apollo_automation(job_id=None):
+    if not st.session_state.apollo_running:
+        st.session_state.apollo_running = True
+        st.session_state.target_job_id = job_id
+        
+        # Start in a separate thread
+        t = threading.Thread(target=run_apollo_thread, args=(job_id,))
+        t.daemon = True
+        t.start()
+        
+def read_log_file(job_id=None):
+    """Helper to read logs from file"""
+    log_file_path = f"logs/apollo_run_{job_id if job_id else 'batch'}.log"
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r", encoding='utf-8') as f:
+            return f.readlines()
+    return []
+
+def render_apollo_control_panel():
+    with st.expander("🤖 Apollo Agent Control Panel", expanded=True):
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown("#### Status")
+            # Check pending jobs count
+            try:
+                db = SessionLocal()
+                pending_count = db.query(Job).filter(Job.hr_contact_status == 'pending').count()
+                db.close()
+                st.metric("Pending Jobs", f"{pending_count}")
+            except:
+                st.metric("Pending Jobs", "Error")
+            
+            # Start Button
+            if not st.session_state.apollo_running:
+                if st.button("🚀 Run Apollo Scraper", type="primary", disabled=pending_count == 0):
+                    start_apollo_automation()
+                    st.rerun()
+            else:
+                st.info("🔄 Automation Running...")
+                
+        with col2:
+            st.markdown("#### Live Logs (Latest on Top)")
+            log_placeholder = st.empty()
+            
+            # Initial render
+            logs = list(reversed(st.session_state.apollo_logs))
+            log_placeholder.code("\n".join(logs), language="bash")
+            
+            # If running, blocking loop to update just this part
+            # This prevents full page rerun flicker
+            if st.session_state.apollo_running:
+                import time
+                while st.session_state.apollo_running:
+                    logs = list(reversed(st.session_state.apollo_logs))
+                    log_placeholder.code("\n".join(logs), language="bash")
+                    time.sleep(1)
+                    # Check if thread is still alive - simpler way is just to rely on state
+                    # But we need to yield control occasionally
+                    # A true 'while' loop here blocks the UI from other interactions
+                    # So we compromise:
+                    break # We can't block. We must use st.rerun or fragment.
+                    
+    # Auto-refresh mechanism (Moved outside the function to control flow)
+    if st.session_state.apollo_running:
+        time.sleep(2)
+        st.rerun()
+
 # Session state initialization
 if 'jobs' not in st.session_state:
     st.session_state.jobs = []
 if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = ai_agent.demo_mode
+if 'apollo_running' not in st.session_state:
+    st.session_state.apollo_running = False
+if 'apollo_logs' not in st.session_state:
+    st.session_state.apollo_logs = []
 
 # Load demo data on first run
 if 'demo_loaded' not in st.session_state:
@@ -1188,6 +1320,10 @@ elif page == "📄 Resume Export":
 # ==========================
 elif page == "📧 Email Center":
     st.markdown('<h1 class="main-header">Email Center 📧</h1>', unsafe_allow_html=True)
+    
+    # Render Apollo Control Panel - REMOVED (Moved to individual job selection)
+    # render_apollo_control_panel()
+    
     st.markdown("Manage cold emails, follow-ups, and track responses")
     
     # Email stats
@@ -1333,6 +1469,60 @@ elif page == "📧 Email Center":
                     with action_col2:
                         job_id = selected_job.get('id')
                         if job_id:
+                            # --- AI AGENT INTEGRATION ---
+                            # Check status for this specific job
+                            db = SessionLocal()
+                            current_job = db.query(Job).filter(Job.id == job_id).first()
+                            hr_status = current_job.hr_contact_status if current_job else 'unknown'
+                            db.close()
+                            
+                            # Automation Control Logic
+                            is_running = st.session_state.apollo_running and st.session_state.get('target_job_id') == job_id
+                            
+                            if is_running:
+                                # 1. Consume Logs from File
+                                logs = read_log_file(job_id)
+                                finished_signal = False
+                                
+                                # Clean logs for display
+                                display_logs = []
+                                for line in logs:
+                                    if "___FINISHED_" in line:
+                                        finished_signal = True
+                                        continue
+                                    display_logs.append(line.strip())
+                                
+                                st.session_state.apollo_logs = display_logs
+                                
+                                # 2. Check DB status (Backup check)
+                                db_finished = hr_status in ['found', 'not_found']
+                                
+                                if finished_signal or db_finished:
+                                    st.session_state.apollo_running = False
+                                    st.session_state.target_job_id = None
+                                    st.rerun()
+                                else:
+                                    st.info("🔄 Scout Agent searching... (This takes 10-20s)")
+                                    # Show logs in expander
+                                    with st.expander("Show Logs", expanded=False):
+                                        if st.session_state.apollo_logs:
+                                            # Show latest 10 lines
+                                            st.code("\n".join(st.session_state.apollo_logs[-10:]))
+                                    time.sleep(1) # Auto-refresh
+                                    st.rerun()
+                                    
+                            elif hr_status == 'found':
+                                st.success("✅ HR Contact Found")
+                            elif hr_status == 'not_found':
+                                st.warning("⚠️ Email not found")
+                                if st.button("🔄 Retry Apollo Search", key=f"btn_retry_{job_id}"):
+                                    start_apollo_automation(job_id=job_id)
+                                    st.rerun()
+                            else:
+                                if st.button("🕵️ Find HR email with Apollo", key=f"btn_apollo_{job_id}"):
+                                    start_apollo_automation(job_id=job_id)
+                                    st.rerun()
+                            
                             # Applied checkbox with callback
                             applied_key = f"email_applied_{job_id}"
                             if st.checkbox("✅ Mark as Applied", key=applied_key):

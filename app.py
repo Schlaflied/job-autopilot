@@ -13,7 +13,7 @@ from modules.logger_config import app_logger
 from modules.database import init_db
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allow all origins for Chrome Extension
 
 # Initialize database
 try:
@@ -60,14 +60,24 @@ def get_next_apollo_task():
         db = SessionLocal()
         
         # Find jobs with pending HR contact status
+        # Priority 1: Jobs with company_domain (more accurate)
         pending_job = db.query(Job).filter(
             Job.hr_contact_status == 'pending',
-            Job.company_domain.isnot(None)  # Must have domain for Apollo search
+            Job.company_domain.isnot(None)
         ).first()
+        
+        # Priority 2: Jobs without domain (will use company name search)
+        if not pending_job:
+            pending_job = db.query(Job).filter(
+                Job.hr_contact_status == 'pending'
+            ).first()
         
         if not pending_job:
             db.close()
             return jsonify({"status": "no_task", "message": "No pending HR search tasks"})
+        
+        # Determine search mode
+        search_mode = "domain" if pending_job.company_domain else "company_name"
         
         task = {
             "status": "task_found",
@@ -77,12 +87,13 @@ def get_next_apollo_task():
                 "company_domain": pending_job.company_domain,
                 "job_title": pending_job.title,
                 "department": pending_job.department or "General",
-                "job_description": pending_job.description[:500] if pending_job.description else ""
+                "job_description": pending_job.description[:500] if pending_job.description else "",
+                "search_mode": search_mode  # NEW: tells extension how to search
             }
         }
         
         db.close()
-        app_logger.info(f"Apollo task assigned: Job {pending_job.id} - {pending_job.company}")
+        app_logger.info(f"Apollo task assigned: Job {pending_job.id} - {pending_job.company} (mode: {search_mode})")
         return jsonify(task)
         
     except Exception as e:

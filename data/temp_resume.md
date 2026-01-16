@@ -1,9 +1,9 @@
 #### 1. Header
-Yuting Sun| London, Ontario| 416-732-5105| 200203syttt@gmail.com
-Linkedin： https://www.linkedin.com/in/yuting-sun-48bbb4211/
+[YOUR NAME]| [LOCATION]| [PHONE NUMBER]| [EMAIL ADDRESS]
+Linkedin： [LINKEDIN URL]
 Github：[https://github.com/Schlaflied](https://github.com/Schlaflied)
-Portfolio：[Learning and Development](https://syttt.my.canva.site/)
-Project Sepcifications: [Yuting Sun_projects](https://drive.google.com/file/d/1Vb8JkPhByj0-lojnOmD5J482g_im8Ijb/view?usp=sharing)
+Portfolio：[PORTFOLIO LINK]
+Project Sepcifications: [PROJECT LINK]
 
 ---
 #### 2. Professional Summary
