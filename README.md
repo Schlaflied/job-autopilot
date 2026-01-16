@@ -123,6 +123,9 @@ source venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
+# 3.1 Install Playwright browsers (Required for Apollo Agent)
+playwright install chromium
+
 # 4. **REQUIRED**: Create your master resume
 # Create a file named "Master Resume.md" (or "[Your Name] Master Resume.md")
 # Place it in the project root directory
