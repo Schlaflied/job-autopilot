@@ -499,6 +499,16 @@ Job Autopilot - API Connection Test
 pip install -r requirements.txt
 ```
 
+### "Playwright: Executable doesn't exist"
+- You must install the browser binaries:
+```bash
+playwright install chromium
+```
+- If running on Linux/WSL, install dependencies:
+```bash
+playwright install-deps
+```
+
 ### "DATABASE_URL not found - running in DEMO mode"
 - Check `.env` file exists
 - Ensure `DATABASE_URL=postgresql://...` is set
