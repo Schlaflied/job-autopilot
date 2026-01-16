@@ -164,6 +164,11 @@ class Job(Base):
     job_category = Column(String(50))  # 'edtech', 'ai_pm', 'automation'
     scraped_source = Column(String(20), default='apify')
     
+    # NEW: Apollo Agent fields
+    company_domain = Column(String(255))  # e.g., 'openai.com' extracted from apply_url
+    hr_contact_status = Column(String(20), default='pending')  # 'pending', 'found', 'not_found'
+    department = Column(String(100))  # Inferred from JD: 'Engineering', 'Marketing', etc.
+    
     # NEW: Resume Export fields (Phase 2)
     selected_template = Column(String(50))  # e.g., "classic_single_column"
     # NOTE: resume_version_id removed - ResumeVersion table references Job via job_id
@@ -219,9 +224,14 @@ class HRContact(Base):
     phone = Column(String)
     title = Column(String)
     linkedin_url = Column(String)
-    source = Column(String(20), default='selenium')  # 'selenium', 'lusha', 'website', 'manual'
+    source = Column(String(20), default='apollo')  # 'apollo', 'selenium', 'lusha', 'website', 'manual'
     quality_score = Column(Integer)  # 0-100
     imported_at = Column(DateTime, default=datetime.utcnow)
+    
+    # NEW: Apollo Agent - Link HR contact to specific job
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True)
+    contact_type = Column(String(20), default='recruiter')  # 'recruiter', 'hiring_manager'
+    department = Column(String(100))  # 'Engineering', 'Marketing' - matches job requirement
     
     # Relationships
     applications = relationship("Application", back_populates="hr_contact")

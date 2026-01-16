@@ -5,6 +5,7 @@ import os
 import json
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from apify_client import ApifyClient
 from modules.database import Job, Application, SessionLocal
@@ -259,7 +260,13 @@ class JobScraper:
                 
                 # Category & source
                 "job_category": category,
-                "scraped_source": "apify"
+                "scraped_source": "apify",
+                
+                # NEW: Apollo Agent fields
+                "company_domain": self.extract_company_domain(
+                    raw_job.get("applyUrl") or raw_job.get("companyUrl") or job_url
+                ),
+                "hr_contact_status": "pending"  # Will be updated after Apollo scraping
             }
             
             return processed
@@ -268,6 +275,46 @@ class JobScraper:
             scraper_logger.error(f"Failed to process job data: {e}", exc_info=True)
             scraper_logger.debug(f"Problematic raw_job keys: {list(raw_job.keys()) if raw_job else 'None'}")
             return {}
+
+    def extract_company_domain(self, url: str) -> Optional[str]:
+        """
+        Extract clean company domain from a URL (apply_url or company_url).
+        Removes common sub-prefixes like 'careers.', 'jobs.', 'www.'.
+        
+        Args:
+            url: The URL to extract domain from (e.g., 'https://careers.openai.com/apply/123')
+        
+        Returns:
+            str: Clean domain (e.g., 'openai.com') or None if extraction fails
+        """
+        if not url:
+            return None
+        
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            
+            # Remove common prefixes
+            prefixes_to_remove = ['careers.', 'jobs.', 'job.', 'hiring.', 'apply.', 'www.']
+            for prefix in prefixes_to_remove:
+                if domain.startswith(prefix):
+                    domain = domain[len(prefix):]
+            
+            # Remove port if present
+            if ':' in domain:
+                domain = domain.split(':')[0]
+            
+            # Validate domain has at least one dot
+            if '.' not in domain:
+                return None
+            
+            scraper_logger.debug(f"Extracted domain: {domain} from {url}")
+            return domain
+            
+        except Exception as e:
+            scraper_logger.warning(f"Failed to extract domain from {url}: {e}")
+            return None
+
 
     def clean_html_tags(self, text: str) -> str:
         """Remove HTML tags from text"""
