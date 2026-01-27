@@ -401,3 +401,14 @@ gmail_token.json
 logs/
 .playwright_data/
 data/debug_screenshots/
+# ============================================================
+# ChromaDB and sensitive data (DO NOT COMMIT!)
+# ============================================================
+chroma_data/
+
+# LinkedIn connection data
+data/connection_sync_stats.txt
+
+# Debug files
+debug_*.txt
+*_debug.txt
