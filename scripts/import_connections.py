@@ -70,6 +70,8 @@ class ConnectionImporter:
                 
                 # Import connections
                 all_connections = []
+                seen_urls = set()  # Track URLs we've already parsed
+                no_new_count = 0  # Count consecutive pages with no new contacts
                 
                 for page in range(max_pages):
                     print(f"\n📄 Page {page + 1}/{max_pages}...")
@@ -78,21 +80,49 @@ class ConnectionImporter:
                     connections = self._parse_connections(snapshot)
                     
                     if not connections:
-                        print("   No more connections found")
+                        print("   No connections found in snapshot")
                         break
+                    
+                    # Filter out duplicates from this snapshot
+                    unique_connections = []
+                    for conn in connections:
+                        url = conn.get('linkedin_url', '')
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            unique_connections.append(conn)
                     
                     # Filter out already imported
                     new_connections = []
-                    for conn in connections:
+                    for conn in unique_connections:
                         if not self.memory.has_contacted(conn.get('linkedin_url', '')):
                             new_connections.append(conn)
                     
-                    print(f"   Found {len(connections)} connections, {len(new_connections)} new")
+                    print(f"   Parsed {len(connections)} total, {len(unique_connections)} unique, {len(new_connections)} new")
+                    print(f"   📊 Total seen so far: {len(seen_urls)} unique contacts")
                     all_connections.extend(new_connections)
                     
-                    # Scroll down for more
-                    await session.call_tool("press_key", arguments={"key": "End"})
-                    await asyncio.sleep(2)
+                    # Check if we're stuck (no new unique contacts)
+                    if len(unique_connections) == 0:
+                        no_new_count += 1
+                        if no_new_count >= 3:
+                            print("   ⚠️ No new contacts for 3 consecutive scrolls, stopping")
+                            break
+                    else:
+                        no_new_count = 0
+                    
+                    # Use JavaScript to scroll down (more reliable than End key)
+                    print("   🔽 Scrolling down...")
+                    for scroll_attempt in range(5):  # Increased to 5 scrolls
+                        # Scroll down 800px each time
+                        await session.call_tool("evaluate_script", arguments={
+                            "function": "() => { window.scrollBy(0, 800); }"
+                        })
+                        await asyncio.sleep(1.2)
+                    
+                    # Extra wait for lazy loading
+                    print("   ⏳ Waiting for content to load...")
+                    await asyncio.sleep(3)
+
                 
                 # Save to memory
                 print(f"\n💾 Saving {len(all_connections)} connections to memory...")

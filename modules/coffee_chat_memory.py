@@ -7,7 +7,6 @@ import sys
 from typing import List, Dict, Optional
 from datetime import datetime
 import chromadb
-from chromadb.config import Settings
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -32,10 +31,8 @@ class CoffeeChatMemory:
         Args:
             persist_directory: Directory to persist ChromaDB data
         """
-        self.client = chromadb.Client(Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False
-        ))
+        # Use PersistentClient to ensure data is saved to disk
+        self.client = chromadb.PersistentClient(path=persist_directory)
         
         self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         
@@ -150,15 +147,21 @@ class CoffeeChatMemory:
             # Get embedding
             embedding = self._get_embedding(profile_text)
             
-            # Prepare metadata
-            metadata = {
-                'name': contact_data.get('name', ''),
-                'company': contact_data.get('company', ''),
-                'title': contact_data.get('title', ''),
-                'school': contact_data.get('school_name', ''),
-                'first_contact_date': datetime.utcnow().isoformat(),
-                'relationship_status': 'pending'
-            }
+            # Prepare metadata - save all fields from contact_data
+            # ChromaDB metadata must be simple types (str, int, float, bool)
+            metadata = {}
+            for key, value in contact_data.items():
+                # Convert all values to strings for ChromaDB compatibility
+                if value is not None and not isinstance(value, (list, dict)):
+                    metadata[key] = str(value)
+            
+            # Ensure required fields
+            if 'name' not in metadata:
+                metadata['name'] = ''
+            if 'first_contact_date' not in metadata:
+                metadata['first_contact_date'] = datetime.utcnow().isoformat()
+            if 'relationship_status' not in metadata:
+                metadata['relationship_status'] = 'pending'
             
             # Save to ChromaDB
             self.contacts_collection.add(
