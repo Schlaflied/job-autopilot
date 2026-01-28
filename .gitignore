@@ -165,7 +165,6 @@ cython_debug/
 
 # ============================================================
 # Project-specific
-Yuting Sun Master Resume.md
 RESUME_EXPORT_IMPLEMENTATION.md
 IMPLEMENTATION_PLAN.md
 # ============================================================
@@ -412,3 +411,32 @@ data/connection_sync_stats.txt
 # Debug files
 debug_*.txt
 *_debug.txt
+
+# ============================================================
+# SECURITY & PRIVACY EXCLUSIONS
+# ============================================================
+
+# 1. Documentation with personal strategies/logs
+docs/
+!docs/templates/  # Allow templates if we had any
+
+# 2. LinkedIn Data Exports
+*.csv
+*.xls
+*.xlsx
+connections.csv
+Contacts.csv
+
+# 3. Resume Files (Backup catch-all)
+*Resume*
+*CV*
+*.pdf
+*.docx
+*.doc
+
+# 4. Local Automation Scripts/Batches (optional, if they contain paths)
+# But we'll keep the generic ones. Ignoring specific user ones if any.
+
+# 5. ChromaDB (Vector Store)
+chroma_data/
+

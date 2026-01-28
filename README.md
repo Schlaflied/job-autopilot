@@ -217,51 +217,50 @@ GMAIL_TOKEN_PATH=./data/credentials/gmail_token.json
 
 ---
 
-## 🔗 LinkedIn Automation Guide
+## 🤖 Browser Automation (MCP-Style)
 
-### Setup
+This project uses a direct connection to Chrome's DevTools Protocol (CDP) to "read" web pages and perform actions like a human agent.
 
-1. **Configure User Profile**:
-   - Go to User Profile page
-   - Add your schools (e.g., "University of Western Ontario")
-   - Add target fields (e.g., "Learning & Development")
+### 1. Launch Debug Chrome
+To allow the app to control your browser, you must launch Chrome with a specific debugging port (`9222`).
 
-2. **Search Jobs**:
-   - Go to Coffee Chat Center
-   - Load high-value jobs (score ≥ 7)
-   - Select companies to search
+**Windows Users**:
+1.  Locate `launch_chrome_debug.bat` in the project root.
+2.  **Double-click** to run it.
+3.  A new Chrome window will open. **Log in to LinkedIn** in this window.
 
-3. **Launch LinkedIn**:
-   - Click "Search LinkedIn for X Companies"
-   - Click "🌐 Launch Chrome & Connect"
-   - Chrome opens → Login to LinkedIn (first time only)
-   - Script automatically searches and sends connections
+### 2. Use Coffee Chat Center
+1.  Go to the **Coffee Chat Center** page in the app.
+2.  Click **"🔗 Test Connection"** to verify the app can "see" your Chrome window.
+3.  Use features like **"Dive & Draft"**:
+    - The app will navigate Chrome to a contact's profile.
+    - It reads the screen (using MCP/CDP).
+    - AI analyzes the profile hooks and drafts a message.
+    - Click **"Paste to LinkedIn"** to insert the draft.
 
-### How It Works
+---
 
-```
-1. 📋 Select Jobs in Coffee Chat Center
-            ↓
-2. 🔍 Click "Search LinkedIn" → Extracts company domains
-            ↓
-3. 🌐 Click "Launch Chrome" → Opens LinkedIn in new Chrome profile
-            ↓
-4. 🔐 Login to LinkedIn (first time only - session persists)
-            ↓
-5. 🎓 Searches: "[Company] + [Your School]"
-            ↓
-6. 🧠 AI Processing:
-   - Memory Dedup → Skip already contacted
-   - ScamDetection → Filter suspicious profiles
-   - ContactRanker → Sort by priority score
-            ↓
-7. 📨 Auto-Send Connection Requests
-   - No notes (saves quota)
-   - 10-20s delays (rate limiting)
-   - Saves to Memory Layer
-            ↓
-8. 📊 Summary: X sent, Y failed, Memory stats
-```
+## 🔐 Security & Privacy
+
+**Your Data Stays With You.**
+
+- **Local Database**: Job data is stored in your local PostgreSQL/SQLite instance.
+- **Local Browser**: Automation happens on your machine, in your browser.
+- **Git Ignoring**: The `.gitignore` is pre-configured to exclude:
+    - `docs/` (Your personal strategies/logs)
+    - `data/` (Resumes, credentials)
+    - `chroma_data/` (AI memory)
+    - `*.csv` (LinkedIn exports)
+
+**To Import LinkedIn Connections:**
+1.  Export your data from LinkedIn Settings (`Connections.csv`).
+2.  Place it in the project folder.
+3.  Run the import script (or use the UI uploader).
+    ```bash
+    python scripts/import_enhanced_connections.py
+    ```
+
+---
 
 ### Command Line Usage
 

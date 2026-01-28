@@ -290,6 +290,71 @@ Generate the message:"""
             # Fallback
             return f"Hi {first_name},\n\nThank you for connecting! As a fellow {school} alum, I'm really interested in learning about your experience at {company}. Would you be open to a quick 15-20 minute virtual coffee chat? I'm flexible with timing and would love to hear about your journey.\n\nLooking forward to connecting!"
 
+    def generate_message_from_snapshot(
+        self,
+        contact_name: str,
+        snapshot: str,
+        user_context: str = "I am a Learning Technologist and Educator with a background in Instructional Design and AI."
+    ) -> str:
+        """
+        Generate a deeply personalized message by analyzing the raw profile snapshot.
+        This replicates the 'Human-Level' deep dive.
+        """
+        try:
+            # 1. Analyze Snapshot
+            analysis_prompt = f"""Analyze this LinkedIn profile text for a cold outreach message.
+            
+            Contact: {contact_name}
+            Profile Text:
+            {snapshot[:1500]}... (truncated)
+            
+            Identify 2-3 specific "Hooks" or "Talking Points" that I can mention to build rapport.
+            Focus on:
+            - Shared interests (EdTech, AI, Learning Design)
+            - Specific articles, posts, or projects they mentioned
+            - Unique career transitions
+            
+            Return ONLY the hooks as a bulleted list.
+            """
+            
+            analysis_res = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": analysis_prompt}],
+                max_tokens=150
+            )
+            hooks = analysis_res.choices[0].message.content.strip()
+            
+            # 2. Generate Message
+            msg_prompt = f"""Write a warm, professional LinkedIn cold message to {contact_name}.
+            
+            My Context: {user_context}
+            
+            Their Profile Hooks:
+            {hooks}
+            
+            Goal: Request a 15-min virtual coffee chat to learn from their experience.
+            
+            Requirements:
+            - Start with a specific observation from their profile (use one of the hooks).
+            - Be humble and genuine.
+            - "I saw your background in..." or "I noticed you..."
+            - Keep it under 150 words.
+            - NO generic fluff ("I hope this email finds you well").
+            - End with a low-pressure ask ("Open to a brief chat?").
+            """
+            
+            msg_res = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": msg_prompt}],
+                max_tokens=200
+            )
+            
+            return msg_res.choices[0].message.content.strip().replace('"', '')
+
+        except Exception as e:
+            app_logger.error(f"Deep dive generation failed: {e}")
+            return f"Hi {contact_name}, I came across your profile and was really impressed by your experience. As a fellow professional in EdTech/L&D, I'd love to connect and hear your insights on the field. Would you be open to a brief chat?"
+
 
 class ScamDetectionAgent:
     """

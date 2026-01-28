@@ -4,6 +4,16 @@
 import streamlit as st
 import sys
 import os
+
+# --- Patch for ChromaDB (SQLite Version Fix) ---
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+# -----------------------------------------------
+
 import subprocess
 import threading
 import time

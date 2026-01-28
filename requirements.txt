@@ -10,7 +10,8 @@ python-dotenv==1.0.0
 # Database
 psycopg2-binary==2.9.9  # PostgreSQL adapter
 sqlalchemy==2.0.23      # ORM
-alembic==1.13.1         # Database migrations
+chromadb==0.4.22       # Vector Database
+pysqlite3-binary      # Override system sqlite for ChromaDB
 
 # Redis Caching
 redis==5.0.1
@@ -23,6 +24,7 @@ langchain==0.1.0
 langchain-openai==0.0.2
 tiktoken==0.5.2  # Token counting
 mcp>=0.1.0  # Model Context Protocol
+websocket-client>=1.6.0  # Chrome DevTools Protocol communication
 
 # Web Scraping
 requests==2.31.0

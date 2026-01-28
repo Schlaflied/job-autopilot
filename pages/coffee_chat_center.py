@@ -346,42 +346,92 @@ st.divider()
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Contact List
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-st.header("👥 Contact List")
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Automation Actions (Integrated MCP)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+st.header("🤖 Outreach Actions")
+st.caption("New: Integrated Browser Control (No PowerShell needed)")
 
-contacts = session.query(CoffeeChatContact).order_by(
-    CoffeeChatContact.priority_score.desc()
-).all()
+# Session state for draft
+if 'draft_message' not in st.session_state:
+    st.session_state.draft_message = ""
+if 'current_processing_contact' not in st.session_state:
+    st.session_state.current_processing_contact = None
 
-if contacts:
-    for contact in contacts[:10]:  # Show top 10
-        with st.expander(f"{contact.name} @ {contact.current_company}", expanded=False):
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.write(f"**Title:** {contact.current_title}")
-                st.write(f"**Status:** {contact.status}")
-                st.write(f"**Priority Score:** {contact.priority_score or 0:.1f}")
-                
-                if contact.is_alumni:
-                    st.success(f"🎓 Alumni: {contact.school_name}")
-                
-                if contact.related_job_id:
-                    job = session.query(Job).filter_by(id=contact.related_job_id).first()
-                    if job:
-                        st.info(f"📋 Related to: {job.title} (Score: {job.match_score}/10)")
-            
-            with col2:
-                if contact.linkedin_url:
-                    st.link_button("🔗 LinkedIn", contact.linkedin_url)
-                
-                if contact.connection_status == 'pending':
-                    st.caption("⏳ Connection Pending")
-                elif contact.connection_status == 'accepted':
-                    st.caption("✅ Connected")
-else:
-    st.info("No contacts yet. Load jobs and search LinkedIn!")
+from modules.linkedin_agent_v2 import LinkedInAgentV2
+agent_v2 = LinkedInAgentV2()
+
+# Browser Status
+col_status, col_btn = st.columns([3, 1])
+with col_status:
+    st.info("Ensure Chrome is open with debugging port 9222 (run chrome.exe --remote-debugging-port=9222)")
+with col_btn:
+    if st.button("🔗 Test Connection"):
+        if agent_v2.connect_browser():
+            st.success("Connected to Chrome!")
+        else:
+            st.error("Failed to connect to localhost:9222")
 
 st.divider()
 
+# List contacts with actions
+st.subheader("Priority Contacts for Outreach")
+
+contacts = session.query(CoffeeChatContact).order_by(
+    CoffeeChatContact.priority_score.desc()
+).limit(10).all()
+
+for contact in contacts:
+    with st.expander(f"{contact.name} ({contact.current_title}) - Score: {contact.priority_score:.1f}", expanded=False):
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            st.write(f"**Company**: {contact.current_company}")
+            st.write(f"**School**: {contact.school_name}")
+            st.caption(f"Status: {contact.status}")
+        
+        with c2:
+            # Action 1: Deep Dive & Draft
+            if st.button("📝 1. Dive & Draft", key=f"draft_{contact.id}"):
+                with st.spinner(f"Navigating to {contact.name}..."):
+                    res = agent_v2.deep_dive_and_generate_draft(contact.name, contact.linkedin_url)
+                    if res.get('success'):
+                        st.session_state.draft_message = res['draft']
+                        st.session_state.current_processing_contact = contact.name
+                        st.success("Draft Generated!")
+                        st.rerun()
+                    else:
+                        st.error(str(res.get('error')))
+        
+        # Draft Area (if active for this contact)
+        if st.session_state.current_processing_contact == contact.name:
+            st.markdown("---")
+            st.markdown("#### Message Draft")
+            edited_draft = st.text_area("Review Message", value=st.session_state.draft_message, height=200, key=f"text_{contact.id}")
+            st.session_state.draft_message = edited_draft
+            
+            c3, c4 = st.columns(2)
+            with c3:
+                # Action 2: Click Message Button
+                if st.button("🖱️ 2. Open Message Box", key=f"open_{contact.id}"):
+                    if agent_v2.open_message_box().get('success'):
+                        st.success("Message box opened!")
+                    else:
+                        st.warning("Could not find 'Message' button (try manually clicking)")
+            
+            with c4:
+                # Action 3: Paste
+                if st.button("📋 3. Paste to LinkedIn", type="primary", key=f"paste_{contact.id}"):
+                    res = agent_v2.paste_message(st.session_state.draft_message)
+                    if res.get('success'):
+                        st.success("Pasted! Please review and click Send manually.")
+                        # Update status (Optional)
+                        # contact.status = 'drafted'
+                        # session.commit()
+                    else:
+                        st.error("Paste failed. Please focus the message box manually and try again.")
+            st.markdown("---")
+            
+st.divider()
+
 # Footer
-st.caption("💡 Tip: Load high-value jobs, select companies, then search LinkedIn for alumni")
+st.caption("Agent V2 enabled. Manual review required before sending.")
