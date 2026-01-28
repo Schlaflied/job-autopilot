@@ -152,6 +152,25 @@ streamlit run streamlit_app.py --server.port=8502
 
 **Access the app**: http://localhost:8502
 
+### 🐳 Docker Deployment
+
+You can run the entire application in a Docker container (recommended for stability).
+
+```bash
+# 1. Build the image
+docker build -t job-autopilot .
+
+# 2. Run the container
+# We map port 8502 and allow access to the host's Chrome (CDP)
+docker run -p 8502:8502 -p 5000:5000 \
+  --add-host=host.docker.internal:host-gateway \
+  --env-file .env \
+  -v "%cd%/data":/app/data \
+  job-autopilot
+```
+
+> **Note**: The `--add-host` flag is crucial for the Docker container to connect to your local Chrome instance for LinkedIn automation.
+
 ---
 
 ## 📁 Project Structure

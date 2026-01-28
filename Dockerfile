@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_PORT=8502
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 ENV CDP_HOST=host.docker.internal
 ENV FLASK_APP=app.py
@@ -34,8 +34,8 @@ COPY . .
 RUN mkdir -p data/db data/logs .gemini
 
 # Expose ports
-EXPOSE 8501 5000
+EXPOSE 8502 5000
 
 # Start script
 # Launches Flask (API) and Streamlit (Frontend)
-CMD ["sh", "-c", "python app.py & streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0"]
+CMD ["sh", "-c", "python app.py & streamlit run streamlit_app.py --server.port=8502 --server.address=0.0.0.0"]
