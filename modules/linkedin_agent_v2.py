@@ -54,15 +54,29 @@ class LinkedInAgentV2:
             contact_name=contact_name,
             snapshot=snapshot
         )
+
+        # --- NEW: Human Touch Review Loop ---
+        # We construct a context object for the reviewer
+        review_context = {
+            'name': contact_name,
+            'company': 'LinkedIn Profile', # Placeholder as we might not have exact company parsed yet
+            'linkedin_url': contact_url
+        }
+        
+        logger.info(f"Draft generated. Sending to ReviewerAgent for refinement...")
+        final_message = self.agent_manager.reviewer.review_message(draft, review_context)
         
         # Log success
-        logger.info(f"Generated deep dive draft for {contact_name}")
+        logger.info(f"Generated and reviewed deep dive draft for {contact_name}")
         
         return {
             "success": True,
-            "draft": draft,
+            "draft": final_message,
+            "original_draft": draft, # Keep original for comparison if needed
             "profile_text": snapshot[:500] + "..." # Snippet
         }
+        
+
 
     def open_message_box(self) -> Dict:
         """Click the 'Message' button on the profile"""
